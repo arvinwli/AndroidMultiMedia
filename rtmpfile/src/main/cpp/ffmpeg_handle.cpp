@@ -4,6 +4,9 @@
 #include <jni.h>
 #include <string>
 #include<android/log.h>
+//定义日志宏变量
+#define logw(content)   __android_log_write(ANDROID_LOG_WARN,"eric",content);
+#define loge(content)   __android_log_write(ANDROID_LOG_WARN,"eric",content);
 
 extern "C" {
 #include "libavcodec/avcodec.h"
@@ -26,7 +29,7 @@ int avError(int errNum) {
     char buf[1024];
     //获取错误信息
     av_strerror(errNum, buf, sizeof(buf));
-    __android_log_write(ANDROID_LOG_WARN,"eric",buf);
+    loge(buf);
     cout << " failed! " << buf << endl;
     return -1;
 }
@@ -46,7 +49,7 @@ Java_com_wangheart_rtmpfile_ffmpeg_FFmpegHandle_pushRtmpFile(JNIEnv *env, jobjec
                                                              jstring path_) {
     const char *path = env->GetStringUTFChars(path_, 0);
 
-    __android_log_write(ANDROID_LOG_WARN,"eric",path);
+    logw(path);
     int videoindex = -1;
     //所有代码执行之前要调用av_register_all和avformat_network_init
     //初始化所有的封装和解封装 flv mp4 mp3 mov。不包含编码和解码
