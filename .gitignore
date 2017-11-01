@@ -5,9 +5,9 @@
 /build
 /captures
 .externalNativeBuild
-/.idea
 /app/build
 /app/.externalNativeBuild
 gradle
 gradlew
 gradlew.bat
+.idea
