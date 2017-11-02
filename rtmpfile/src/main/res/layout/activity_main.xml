@@ -14,9 +14,15 @@
         android:text="Hello World!"
         android:textColor="#000000"
         android:textSize="20sp" />
+
     <Button
         android:id="@+id/btn_push"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:onClick="btnPush"/>
+        android:onClick="btnPush" />
+
+    <TextView
+        android:id="@+id/tv_push_info"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content" />
 </LinearLayout>

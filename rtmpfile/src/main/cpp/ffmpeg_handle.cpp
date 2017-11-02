@@ -19,10 +19,23 @@ extern "C" {
 
 using namespace std;
 
-int avError(int errNum);
+jobject pushCallback = NULL;
+jclass cls = NULL;
+jmethodID mid = NULL;
 
-static double r2d(AVRational r) {
-    return r.num == 0 || r.den == 0 ? 0. : (double) r.num / (double) r.den;
+int callback(JNIEnv *env, int pts, int dts, int duration, int index) {
+//    logw("=================")
+    if (pushCallback == NULL) {
+        return -3;
+    }
+    if (cls == NULL) {
+        return -1;
+    }
+    if (mid == NULL) {
+        return -2;
+    }
+    env->CallVoidMethod(pushCallback, mid, pts, dts, duration, index);
+    return 0;
 }
 
 int avError(int errNum) {
@@ -34,6 +47,7 @@ int avError(int errNum) {
     return -1;
 }
 
+//获取FFmpeg相关信息
 extern "C"
 JNIEXPORT jstring JNICALL
 Java_com_wangheart_rtmpfile_ffmpeg_FFmpegHandle_getAvcodecConfiguration(JNIEnv *env,
@@ -41,6 +55,30 @@ Java_com_wangheart_rtmpfile_ffmpeg_FFmpegHandle_getAvcodecConfiguration(JNIEnv *
     char info[10000] = {0};
     sprintf(info, "%s\n", avcodec_configuration());
     return env->NewStringUTF(info);
+}
+
+/**
+ * 设置回到对象
+ */
+extern "C"
+JNIEXPORT jint JNICALL
+Java_com_wangheart_rtmpfile_ffmpeg_FFmpegHandle_setCallback(JNIEnv *env, jobject instance,
+                                                            jobject pushCallback1) {
+    //转换为全局变量
+    pushCallback = env->NewGlobalRef(pushCallback1);
+    if (pushCallback == NULL) {
+        return -3;
+    }
+    cls = env->GetObjectClass(pushCallback);
+    if (cls == NULL) {
+        return -1;
+    }
+    mid = env->GetMethodID(cls, "videoCallback", "(IIII)V");
+    if (mid == NULL) {
+        return -2;
+    }
+    env->CallVoidMethod(pushCallback, mid, 1, 2, 3, 4);
+    return 0;
 }
 
 extern "C"
@@ -197,7 +235,8 @@ Java_com_wangheart_rtmpfile_ffmpeg_FFmpegHandle_pushRtmpFile(JNIEnv *env, jobjec
             pkt.pts = (double) (frame_index * calc_duration) /
                       (double) (av_q2d(time_base1) * AV_TIME_BASE);
             pkt.dts = pkt.pts;
-            pkt.duration = (double) calc_duration / (double) (av_q2d(time_base1) * AV_TIME_BASE);
+            pkt.duration =
+                    (double) calc_duration / (double) (av_q2d(time_base1) * AV_TIME_BASE);
         }
 
         //延时
@@ -228,7 +267,7 @@ Java_com_wangheart_rtmpfile_ffmpeg_FFmpegHandle_pushRtmpFile(JNIEnv *env, jobjec
                                    (AVRounding) (AV_ROUND_NEAR_INF | AV_ROUND_PASS_MINMAX));
         pkt.duration = (int) av_rescale_q(pkt.duration, in_stream->time_base,
                                           out_stream->time_base);
-        __android_log_print(ANDROID_LOG_WARN,"eric","duration %d",pkt.duration);
+//        __android_log_print(ANDROID_LOG_WARN, "eric", "duration %d", pkt.duration);
         //字节流的位置，-1 表示不知道字节流位置
         pkt.pos = -1;
 
@@ -236,7 +275,7 @@ Java_com_wangheart_rtmpfile_ffmpeg_FFmpegHandle_pushRtmpFile(JNIEnv *env, jobjec
             printf("Send %8d video frames to output URL\n", frame_index);
             frame_index++;
         }
-
+        callback(env, pkt.pts, pkt.dts, pkt.duration, frame_index);
         //向输出上下文发送（向地址推送）
         ret = av_interleaved_write_frame(octx, &pkt);
 

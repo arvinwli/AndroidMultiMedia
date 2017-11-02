@@ -36,6 +36,7 @@ public class FFmpegHandle {
         System.loadLibrary("avdevice-57");
         System.loadLibrary("ffmpeg-handle");
     }
+    public native int setCallback(PushCallback pushCallback);
 
     public native String getAvcodecConfiguration();
 
