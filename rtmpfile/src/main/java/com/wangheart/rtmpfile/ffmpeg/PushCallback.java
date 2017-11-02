@@ -10,5 +10,5 @@ package com.wangheart.rtmpfile.ffmpeg;
  */
 
 public interface PushCallback {
-    public void videoCallback(int pts, int dts, int duration, int index);
+    public void videoCallback(long pts, long dts, long duration, long index);
 }

@@ -35,7 +35,7 @@ public class MainActivity extends Activity {
         tvCodecInfo.setText(FFmpegHandle.getInstance().getAvcodecConfiguration());
         int res = FFmpegHandle.getInstance().setCallback(new PushCallback() {
             @Override
-            public void videoCallback(final int pts, final int dts, final int duration, final int index) {
+            public void videoCallback(final long pts, final long dts, final long duration, final long index) {
                 runOnUiThread(new Runnable() {
                     @Override
                     public void run() {

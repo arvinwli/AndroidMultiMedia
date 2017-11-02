@@ -4,9 +4,11 @@
 #include <jni.h>
 #include <string>
 #include<android/log.h>
+
 //定义日志宏变量
-#define logw(content)   __android_log_write(ANDROID_LOG_WARN,"eric",content);
-#define loge(content)   __android_log_write(ANDROID_LOG_WARN,"eric",content);
+#define logw(content)   __android_log_write(ANDROID_LOG_WARN,"eric",content)
+#define loge(content)   __android_log_write(ANDROID_LOG_ERROR,"eric",content)
+#define logd(content)   __android_log_write(ANDROID_LOG_DEBUG,"eric",content)
 
 extern "C" {
 #include "libavcodec/avcodec.h"
@@ -23,7 +25,7 @@ jobject pushCallback = NULL;
 jclass cls = NULL;
 jmethodID mid = NULL;
 
-int callback(JNIEnv *env, int pts, int dts, int duration, int index) {
+int callback(JNIEnv *env, int64_t pts, int64_t dts, int64_t duration, long long index) {
 //    logw("=================")
     if (pushCallback == NULL) {
         return -3;
@@ -34,7 +36,8 @@ int callback(JNIEnv *env, int pts, int dts, int duration, int index) {
     if (mid == NULL) {
         return -2;
     }
-    env->CallVoidMethod(pushCallback, mid, pts, dts, duration, index);
+    env->CallVoidMethod(pushCallback, mid, (jlong) pts, (jlong) dts, (jlong) duration,
+                        (jlong) index);
     return 0;
 }
 
@@ -42,8 +45,7 @@ int avError(int errNum) {
     char buf[1024];
     //获取错误信息
     av_strerror(errNum, buf, sizeof(buf));
-    loge(buf);
-    cout << " failed! " << buf << endl;
+    loge(string().append("发生异常：").append(buf).c_str());
     return -1;
 }
 
@@ -73,11 +75,11 @@ Java_com_wangheart_rtmpfile_ffmpeg_FFmpegHandle_setCallback(JNIEnv *env, jobject
     if (cls == NULL) {
         return -1;
     }
-    mid = env->GetMethodID(cls, "videoCallback", "(IIII)V");
+    mid = env->GetMethodID(cls, "videoCallback", "(JJJJ)V");
     if (mid == NULL) {
         return -2;
     }
-    env->CallVoidMethod(pushCallback, mid, 1, 2, 3, 4);
+    env->CallVoidMethod(pushCallback, mid, (jlong) 0, (jlong) 0, (jlong) 0, (jlong) 0);
     return 0;
 }
 
@@ -86,7 +88,6 @@ JNIEXPORT jint JNICALL
 Java_com_wangheart_rtmpfile_ffmpeg_FFmpegHandle_pushRtmpFile(JNIEnv *env, jobject instance,
                                                              jstring path_) {
     const char *path = env->GetStringUTFChars(path_, 0);
-
     logw(path);
     int videoindex = -1;
     //所有代码执行之前要调用av_register_all和avformat_network_init
@@ -96,8 +97,6 @@ Java_com_wangheart_rtmpfile_ffmpeg_FFmpegHandle_pushRtmpFile(JNIEnv *env, jobjec
     //初始化网络库
     avformat_network_init();
 
-    //使用的相对路径，执行文件在bin目录下。test.mp4放到bin目录下即可
-//    const char *inUrl = "hs.mp4";
     const char *inUrl = path;
     //输出的地址
     const char *outUrl = "rtmp://192.168.31.127/live";
@@ -112,14 +111,12 @@ Java_com_wangheart_rtmpfile_ffmpeg_FFmpegHandle_pushRtmpFile(JNIEnv *env, jobjec
     //AVDictionary ** options 参数设置
     AVFormatContext *ictx = NULL;
 
-    AVOutputFormat *ofmt = NULL;
-
     //打开文件，解封文件头
     int ret = avformat_open_input(&ictx, inUrl, 0, NULL);
     if (ret < 0) {
         return avError(ret);
     }
-    cout << "avformat_open_input success!" << endl;
+    logw("avformat_open_input success!");
     //获取音频视频的信息 .h264 flv 没有头信息
     ret = avformat_find_stream_info(ictx, 0);
     if (ret != 0) {
@@ -139,9 +136,8 @@ Java_com_wangheart_rtmpfile_ffmpeg_FFmpegHandle_pushRtmpFile(JNIEnv *env, jobjec
     if (ret < 0) {
         return avError(ret);
     }
-    cout << "avformat_alloc_output_context2 success!" << endl;
+    logw("avformat_alloc_output_context2 success!");
 
-    ofmt = octx->oformat;
     cout << "nb_streams  " << ictx->nb_streams << endl;
     int i;
 
@@ -155,17 +151,17 @@ Java_com_wangheart_rtmpfile_ffmpeg_FFmpegHandle_pushRtmpFile(JNIEnv *env, jobjec
             printf("未能成功添加音视频流\n");
             ret = AVERROR_UNKNOWN;
         }
-
+        if (octx->oformat->flags & AVFMT_GLOBALHEADER) {
+            out_stream->codec->flags |= CODEC_FLAG_GLOBAL_HEADER;
+        }
         ret = avcodec_parameters_copy(out_stream->codecpar, in_stream->codecpar);
         if (ret < 0) {
             printf("copy 编解码器上下文失败\n");
         }
         out_stream->codecpar->codec_tag = 0;
+        logw("get stream++++++");
 
-        out_stream->codec->codec_tag = 0;
-        if (octx->oformat->flags & AVFMT_GLOBALHEADER) {
-            out_stream->codec->flags = out_stream->codec->flags | CODEC_FLAG_GLOBAL_HEADER;
-        }
+//        out_stream->codec->codec_tag = 0;
     }
 
     //输入流数据的数量循环
@@ -177,6 +173,7 @@ Java_com_wangheart_rtmpfile_ffmpeg_FFmpegHandle_pushRtmpFile(JNIEnv *env, jobjec
     }
 
     av_dump_format(octx, 0, outUrl, 1);
+    logw("avio_open");
 
     //////////////////////////////////////////////////////////////////
     //                   准备推流
@@ -187,13 +184,17 @@ Java_com_wangheart_rtmpfile_ffmpeg_FFmpegHandle_pushRtmpFile(JNIEnv *env, jobjec
     if (ret < 0) {
         avError(ret);
     }
+    if (ret != 0) {
+        loge("avio_open error");
+    }
 
+    logw("avformat_write_header");
     //写入头部信息
     ret = avformat_write_header(octx, 0);
     if (ret < 0) {
         avError(ret);
     }
-    cout << "avformat_write_header Success!" << endl;
+    logw("avformat_write_header Success!");
     //推流每一帧数据
     //int64_t pts  [ pts*(num/den)  第几秒显示]
     //int64_t dts  解码时间 [P帧(相对于上一帧的变化) I帧(关键帧，完整的数据) B帧(上一帧和下一帧的变化)]  有了B帧压缩率更高。
@@ -205,6 +206,7 @@ Java_com_wangheart_rtmpfile_ffmpeg_FFmpegHandle_pushRtmpFile(JNIEnv *env, jobjec
     //获取当前的时间戳  微妙
     long long start_time = av_gettime();
     long long frame_index = 0;
+    logw("start push");
     while (1) {
         //输入输出视频流
         AVStream *in_stream, *out_stream;
@@ -285,8 +287,13 @@ Java_com_wangheart_rtmpfile_ffmpeg_FFmpegHandle_pushRtmpFile(JNIEnv *env, jobjec
         }
 
         //释放
-        av_free_packet(&pkt);
+        av_packet_unref(&pkt);
     }
+    avio_close(octx->pb);
+    avformat_free_context(octx);
+    avformat_close_input(&ictx);
+    octx = NULL;
+    ictx = NULL;
     env->ReleaseStringUTFChars(path_, path);
     return 0;
 
