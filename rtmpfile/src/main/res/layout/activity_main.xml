@@ -5,6 +5,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
+    android:padding="15dp"
     tools:context="com.wangheart.rtmpfile.MainActivity">
 
     <TextView
@@ -19,10 +20,13 @@
         android:id="@+id/btn_push"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:onClick="btnPush" />
+        android:onClick="btnPush"
+        android:text="开始推流" />
 
     <TextView
         android:id="@+id/tv_push_info"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content" />
+        android:layout_height="wrap_content"
+        android:textColor="#000000"
+        android:textSize="20sp" />
 </LinearLayout>
