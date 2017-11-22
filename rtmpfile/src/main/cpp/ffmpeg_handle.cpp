@@ -16,6 +16,7 @@ extern "C" {
 #include "libavformat/avformat.h"
 //引入时间
 #include "libavutil/time.h"
+#include "libavutil/imgutils.h"
 }
 
 #include <iostream>
@@ -100,7 +101,7 @@ Java_com_wangheart_rtmpfile_ffmpeg_FFmpegHandle_pushRtmpFile(JNIEnv *env, jobjec
 
     const char *inUrl = path;
     //输出的地址
-    const char *outUrl = "rtmp://192.168.31.127/live";
+    const char *outUrl = "rtmp://192.168.31.127/live/test";
 
     //////////////////////////////////////////////////////////////////
     //                   输入流处理部分
@@ -289,7 +290,7 @@ Java_com_wangheart_rtmpfile_ffmpeg_FFmpegHandle_pushRtmpFile(JNIEnv *env, jobjec
     } catch (int errNum) {
     }
     logd("finish===============");
-    //关闭输出上下文，这个很关键。
+    //关闭输出上下文，这个很关键。Linux下FFmpeg编译以及Android平台下使用
     if (octx != NULL)
         avio_close(octx->pb);
     //释放输出封装上下文
@@ -302,4 +303,206 @@ Java_com_wangheart_rtmpfile_ffmpeg_FFmpegHandle_pushRtmpFile(JNIEnv *env, jobjec
     ictx = NULL;
     env->ReleaseStringUTFChars(path_, path);
     return ret;
+}
+
+
+AVFormatContext *ofmt_ctx;
+AVStream *video_st;
+AVCodecContext *pCodecCtx;
+AVCodec *pCodec;
+AVPacket enc_pkt;
+AVFrame *pFrameYUV;
+int count = 0;
+int yuv_width;
+int yuv_height;
+int y_length;
+int uv_length;
+int64_t start_time = 0;
+int width = 480;
+int height = 320;
+int fps = 15;
+char filename_out[] = "/storage/emulated/0/eric.flv";
+
+extern "C"
+JNIEXPORT jint JNICALL
+Java_com_wangheart_rtmpfile_ffmpeg_FFmpegHandle_initVideo(JNIEnv *env, jobject instance,
+                                                          jstring url_) {
+//    const char* out_path = "/sdcard/zhanghui/testffmpeg.flv";
+    const char *out_path = env->GetStringUTFChars(url_, 0);
+//    logd(env->GetStringUTFChars(url_, 0));
+//    const char *out_path = "rtmp://192.168.31.127/live/test";
+//    const char *out_path = filename_out;
+    logd(out_path);
+
+    yuv_width = width;
+    yuv_height = height;
+    y_length = width * height;
+    uv_length = width * height / 4;
+
+
+    av_register_all();
+
+    //output initialize
+    avformat_alloc_output_context2(&ofmt_ctx, NULL, "flv", out_path);
+    //output encoder initialize
+    pCodec = avcodec_find_encoder(AV_CODEC_ID_H264);
+    if (!pCodec) {
+        loge("Can not find encoder!\n");
+        return -1;
+    }
+    pCodecCtx = avcodec_alloc_context3(pCodec);
+    pCodecCtx->codec_id = pCodec->id;
+    pCodecCtx->pix_fmt = AV_PIX_FMT_YUV420P;
+    pCodecCtx->codec_type = AVMEDIA_TYPE_VIDEO;
+    pCodecCtx->width = width;
+    pCodecCtx->height = height;
+    pCodecCtx->framerate = (AVRational) {fps, 1};
+    pCodecCtx->time_base = (AVRational) {1, fps};
+    pCodecCtx->bit_rate = 400000;
+    pCodecCtx->gop_size = 50;
+    /* Some formats want stream headers to be separate. */
+    if (ofmt_ctx->oformat->flags & AVFMT_GLOBALHEADER)
+        pCodecCtx->flags |= CODEC_FLAG_GLOBAL_HEADER;
+
+    //H264 codec param
+//    pCodecCtx->me_range = 16;
+    //pCodecCtx->max_qdiff = 4;
+    pCodecCtx->qcompress = 0.6;
+    pCodecCtx->qmin = 10;
+    pCodecCtx->qmax = 51;
+    //Optional Param
+//    pCodecCtx->max_b_frames = 10;
+//    pCodecCtx->max_b_frames = 0;
+    // Set H264 preset and tune
+//    AVDictionary *param = 0;
+    AVDictionary *param = 0;
+    //H.264
+    if (pCodecCtx->codec_id == AV_CODEC_ID_H264) {
+//        av_dict_set(&param, "preset", "slow", 0);
+        av_dict_set(&param, "preset", "superfast", 0);
+        av_dict_set(&param, "tune", "zerolatency", 0);
+        logw("设置延迟\n");
+    }
+
+    if (avcodec_open2(pCodecCtx, pCodec, &param) < 0) {
+        loge("Failed to open encoder!\n");
+        return -1;
+    }
+
+    //Add a new stream to output,should be called by the user before avformat_write_header() for muxing
+    video_st = avformat_new_stream(ofmt_ctx, pCodec);
+    if (video_st == NULL) {
+        return -1;
+    }
+    video_st->time_base.num = 1;
+    video_st->time_base.den = fps;
+//    video_st->codec = pCodecCtx;
+    video_st->codecpar->codec_tag = 0;
+    avcodec_parameters_from_context(video_st->codecpar, pCodecCtx);
+
+    //Open output URL,set before avformat_write_header() for muxing
+    if (avio_open(&ofmt_ctx->pb, out_path, AVIO_FLAG_READ_WRITE) < 0) {
+        loge("Failed to open output file!\n");
+        return -1;
+    }
+
+    //Write File Header
+    avformat_write_header(ofmt_ctx, NULL);
+
+    return 0;
+}
+
+int64_t startTime = 0;
+extern "C"
+JNIEXPORT jint JNICALL
+Java_com_wangheart_rtmpfile_ffmpeg_FFmpegHandle_onFrameCallback(JNIEnv *env, jobject instance,
+                                                                jbyteArray buffer_) {
+    jbyte *in = env->GetByteArrayElements(buffer_, NULL);
+
+    // TODO
+    int ret;
+    int i = 0;
+
+    pFrameYUV = av_frame_alloc();
+    int picture_size = av_image_get_buffer_size(pCodecCtx->pix_fmt, pCodecCtx->width,
+                                                pCodecCtx->height, 1);
+    uint8_t *buffers = (uint8_t *) av_malloc(picture_size);
+
+
+    av_image_fill_arrays(pFrameYUV->data, pFrameYUV->linesize, buffers, pCodecCtx->pix_fmt,
+                         pCodecCtx->width, pCodecCtx->height, 1);
+
+    //安卓摄像头数据为NV21格式，此处将其转换为YUV420P格式
+
+    memcpy(pFrameYUV->data[0], in, y_length); //Y
+    pFrameYUV->pts = count;
+
+    for (i = 0; i < uv_length; i++) {
+        *(pFrameYUV->data[2] + i) = *(in + y_length + i * 2);
+        *(pFrameYUV->data[1] + i) = *(in + y_length + i * 2 + 1);
+    }
+
+    pFrameYUV->format = AV_PIX_FMT_YUV420P;
+    pFrameYUV->width = yuv_width;
+    pFrameYUV->height = yuv_height;
+
+    av_init_packet(&enc_pkt);
+    __android_log_print(ANDROID_LOG_WARN, "eric", "时间:%d",
+                        (int) ((av_gettime() - startTime) / 1000));
+    ret = avcodec_send_frame(pCodecCtx, pFrameYUV);
+    if (ret != 0) {
+        logw("avcodec_send_frame failed");
+        return -1;
+    }
+    ret = avcodec_receive_packet(pCodecCtx, &enc_pkt);
+    __android_log_print(ANDROID_LOG_WARN, "eric", "时间:%d",
+                        (int) ((av_gettime() - startTime) / 1000));
+    av_frame_free(&pFrameYUV);
+    if (ret != 0 || enc_pkt.size <= 0) {
+        loge("avcodec_receive_packet error");
+        avError(ret);
+        return -2;
+    }
+    count++;
+    __android_log_print(ANDROID_LOG_WARN, "eric", "index:%d", count);
+    enc_pkt.stream_index = video_st->index;
+    //Write PTS
+    AVRational time_base = ofmt_ctx->streams[0]->time_base;//{ 1, 1000 };
+    __android_log_print(ANDROID_LOG_WARN, "eric", "time_base:%d,%d", time_base.num, time_base.den);
+    //Duration between 2 frames (us)
+    enc_pkt.pts = count * (video_st->time_base.den) / ((video_st->time_base.num) * fps);
+    __android_log_print(ANDROID_LOG_WARN, "eric", "pts:%ld", (long) enc_pkt.pts);
+    enc_pkt.dts = enc_pkt.pts;
+    __android_log_print(ANDROID_LOG_WARN, "eric", "dts:%ld", (long) enc_pkt.dts);
+    enc_pkt.duration = (video_st->time_base.den) / ((video_st->time_base.num) * fps);
+    __android_log_print(ANDROID_LOG_WARN, "eric", "duration:%ld", (long) enc_pkt.duration);
+    enc_pkt.pos = -1;
+    ret = av_interleaved_write_frame(ofmt_ctx, &enc_pkt);
+    if (ret != 0) {
+        loge("av_interleaved_write_frame failed");
+    }
+    env->ReleaseByteArrayElements(buffer_, in, 0);
+    __android_log_print(ANDROID_LOG_WARN, "eric", "时间:%d",
+                        (int) ((av_gettime() - startTime) / 1000));
+    startTime = av_gettime();
+    return 0;
+
+}
+
+extern "C"
+JNIEXPORT jint JNICALL
+Java_com_wangheart_rtmpfile_ffmpeg_FFmpegHandle_flush(JNIEnv *env, jobject instance) {
+
+    return 0;
+
+}
+
+extern "C"
+JNIEXPORT jint JNICALL
+Java_com_wangheart_rtmpfile_ffmpeg_FFmpegHandle_close(JNIEnv *env, jobject instance) {
+    if (video_st)
+        avcodec_close(video_st->codec);
+    avio_close(ofmt_ctx->pb);
+    avformat_free_context(ofmt_ctx);
+    return 0;
 }

@@ -1,6 +1,7 @@
 package com.wangheart.rtmpfile;
 
 import android.app.Activity;
+import android.content.Intent;
 import android.os.Bundle;
 import android.os.Environment;
 import android.util.Log;
@@ -53,7 +54,7 @@ public class MainActivity extends Activity {
     }
 
     public void btnPush(View view) {
-        final String path = Environment.getExternalStorageDirectory().getAbsolutePath() + File.separator + "sample.flv";
+        final String path = Environment.getExternalStorageDirectory().getAbsolutePath() + File.separator + "main.flv";
         File file = new File(path);
         log(path + "  " + file.exists());
         new Thread() {
@@ -69,5 +70,10 @@ public class MainActivity extends Activity {
 
     public void log(String content) {
         Log.w("eric", content);
+    }
+
+    public void btnCamera(View view) {
+        Intent intent = new Intent(this, CameraActivity.class);
+        startActivity(intent);
     }
 }

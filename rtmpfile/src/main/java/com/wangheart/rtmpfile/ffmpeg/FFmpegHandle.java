@@ -34,11 +34,21 @@ public class FFmpegHandle {
         System.loadLibrary("swscale-4");
         System.loadLibrary("avfilter-6");
         System.loadLibrary("avdevice-57");
+        System.loadLibrary("postproc-54");
         System.loadLibrary("ffmpeg-handle");
     }
+
     public native int setCallback(PushCallback pushCallback);
 
     public native String getAvcodecConfiguration();
 
     public native int pushRtmpFile(String path);
+
+    public native int initVideo(String url);
+
+    public native int onFrameCallback(byte[] buffer);
+
+    public native int flush();
+
+    public native int close();
 }
