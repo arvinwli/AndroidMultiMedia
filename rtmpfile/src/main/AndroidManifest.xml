@@ -17,6 +17,7 @@
             </intent-filter>
         </activity>
         <activity android:name=".CameraActivity" />
+        <activity android:name=".PushFileRtmpActivity" />
     </application>
 
     <uses-permission android:name="android.permission.INTERNET" />
@@ -28,6 +29,6 @@
     <uses-permission android:name="android.permission.CAMERA" />
     <!--SD卡读写权限-->
     <uses-permission android:name="android.permission.MOUNT_UNMOUNT_FILESYSTEMS" />
-    <uses-feature android:name="android.hardware.Camera"/>
+    <uses-feature android:name="android.hardware.Camera" />
 
 </manifest>

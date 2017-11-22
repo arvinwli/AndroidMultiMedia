@@ -63,6 +63,7 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback {
     }
 
     private void init() {
+        FFmpegHandle.init(this);
         sv = findViewById(R.id.sv);
         mHolder = sv.getHolder();
         mHolder.addCallback(this);

@@ -305,6 +305,12 @@ Java_com_wangheart_rtmpfile_ffmpeg_FFmpegHandle_pushRtmpFile(JNIEnv *env, jobjec
     return ret;
 }
 
+//=======================================================================
+//
+// 摄像头采集数据并输出（文件/RTMP推流）
+//
+//=======================================================================
+
 
 AVFormatContext *ofmt_ctx;
 AVStream *video_st;
@@ -321,6 +327,9 @@ int width = 480;
 int height = 320;
 int fps = 20;
 
+/**
+ * 初始化
+ */
 extern "C"
 JNIEXPORT jint JNICALL
 Java_com_wangheart_rtmpfile_ffmpeg_FFmpegHandle_initVideo(JNIEnv *env, jobject instance,
@@ -333,7 +342,6 @@ Java_com_wangheart_rtmpfile_ffmpeg_FFmpegHandle_initVideo(JNIEnv *env, jobject i
     y_length = width * height;
     uv_length = width * height / 4;
 
-
     av_register_all();
 
     //output initialize
@@ -345,14 +353,22 @@ Java_com_wangheart_rtmpfile_ffmpeg_FFmpegHandle_initVideo(JNIEnv *env, jobject i
         return -1;
     }
     pCodecCtx = avcodec_alloc_context3(pCodec);
+    //编码器的ID号，这里为264编码器，可以根据video_st里的codecID 参数赋值
     pCodecCtx->codec_id = pCodec->id;
+    //像素的格式，也就是说采用什么样的色彩空间来表明一个像素点
     pCodecCtx->pix_fmt = AV_PIX_FMT_YUV420P;
+    //编码器编码的数据类型
     pCodecCtx->codec_type = AVMEDIA_TYPE_VIDEO;
+    //编码目标的视频帧大小，以像素为单位
     pCodecCtx->width = width;
     pCodecCtx->height = height;
     pCodecCtx->framerate = (AVRational) {fps, 1};
+    //帧率的基本单位，我们用分数来表示，
     pCodecCtx->time_base = (AVRational) {1, fps};
+    //目标的码率，即采样的码率；显然，采样码率越大，视频大小越大
     pCodecCtx->bit_rate = 400000;
+    //固定允许的码率误差，数值越大，视频越小
+//    pCodecCtx->bit_rate_tolerance = 4000000;
     pCodecCtx->gop_size = 50;
     /* Some formats want stream headers to be separate. */
     if (ofmt_ctx->oformat->flags & AVFMT_GLOBALHEADER)
@@ -362,20 +378,26 @@ Java_com_wangheart_rtmpfile_ffmpeg_FFmpegHandle_initVideo(JNIEnv *env, jobject i
 //    pCodecCtx->me_range = 16;
     //pCodecCtx->max_qdiff = 4;
     pCodecCtx->qcompress = 0.6;
+    //最大和最小量化系数
     pCodecCtx->qmin = 10;
     pCodecCtx->qmax = 51;
     //Optional Param
-//    pCodecCtx->max_b_frames = 10;
-//    pCodecCtx->max_b_frames = 0;
+    //两个非B帧之间允许出现多少个B帧数
+    //设置0表示不使用B帧
+    //b 帧越多，图片越小
+    pCodecCtx->max_b_frames = 0;
     // Set H264 preset and tune
-//    AVDictionary *param = 0;
     AVDictionary *param = 0;
     //H.264
     if (pCodecCtx->codec_id == AV_CODEC_ID_H264) {
 //        av_dict_set(&param, "preset", "slow", 0);
+        /**
+         * 这个非常重要，如果不设置延时非常的大
+         * ultrafast,superfast, veryfast, faster, fast, medium
+         * slow, slower, veryslow, placebo.　这是x264编码速度的选项
+       */
         av_dict_set(&param, "preset", "superfast", 0);
         av_dict_set(&param, "tune", "zerolatency", 0);
-        logw("设置延迟\n");
     }
 
     if (avcodec_open2(pCodecCtx, pCodec, &param) < 0) {
@@ -406,6 +428,9 @@ Java_com_wangheart_rtmpfile_ffmpeg_FFmpegHandle_initVideo(JNIEnv *env, jobject i
     return 0;
 }
 
+/**
+ * H264编码并输出
+ */
 int64_t startTime = 0;
 extern "C"
 JNIEXPORT jint JNICALL
@@ -464,7 +489,8 @@ Java_com_wangheart_rtmpfile_ffmpeg_FFmpegHandle_onFrameCallback(JNIEnv *env, job
     enc_pkt.pts = count * (video_st->time_base.den) / ((video_st->time_base.num) * fps);
     enc_pkt.dts = enc_pkt.pts;
     enc_pkt.duration = (video_st->time_base.den) / ((video_st->time_base.num) * fps);
-    __android_log_print(ANDROID_LOG_WARN, "eric", "index:%d,pts:%lld,dts:%lld,duration:%lld,time_base:%d,%d",
+    __android_log_print(ANDROID_LOG_WARN, "eric",
+                        "index:%d,pts:%lld,dts:%lld,duration:%lld,time_base:%d,%d",
                         count,
                         (long long) enc_pkt.pts,
                         (long long) enc_pkt.dts,
@@ -487,9 +513,11 @@ JNIEXPORT jint JNICALL
 Java_com_wangheart_rtmpfile_ffmpeg_FFmpegHandle_flush(JNIEnv *env, jobject instance) {
 
     return 0;
-
 }
 
+/**
+ * 释放资源
+ */
 extern "C"
 JNIEXPORT jint JNICALL
 Java_com_wangheart_rtmpfile_ffmpeg_FFmpegHandle_close(JNIEnv *env, jobject instance) {
