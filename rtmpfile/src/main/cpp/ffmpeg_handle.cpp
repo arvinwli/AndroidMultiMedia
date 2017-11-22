@@ -317,21 +317,15 @@ int yuv_width;
 int yuv_height;
 int y_length;
 int uv_length;
-int64_t start_time = 0;
 int width = 480;
 int height = 320;
-int fps = 15;
-char filename_out[] = "/storage/emulated/0/eric.flv";
+int fps = 20;
 
 extern "C"
 JNIEXPORT jint JNICALL
 Java_com_wangheart_rtmpfile_ffmpeg_FFmpegHandle_initVideo(JNIEnv *env, jobject instance,
                                                           jstring url_) {
-//    const char* out_path = "/sdcard/zhanghui/testffmpeg.flv";
     const char *out_path = env->GetStringUTFChars(url_, 0);
-//    logd(env->GetStringUTFChars(url_, 0));
-//    const char *out_path = "rtmp://192.168.31.127/live/test";
-//    const char *out_path = filename_out;
     logd(out_path);
 
     yuv_width = width;
@@ -417,9 +411,9 @@ extern "C"
 JNIEXPORT jint JNICALL
 Java_com_wangheart_rtmpfile_ffmpeg_FFmpegHandle_onFrameCallback(JNIEnv *env, jobject instance,
                                                                 jbyteArray buffer_) {
+//    startTime = av_gettime();
     jbyte *in = env->GetByteArrayElements(buffer_, NULL);
 
-    // TODO
     int ret;
     int i = 0;
 
@@ -447,16 +441,16 @@ Java_com_wangheart_rtmpfile_ffmpeg_FFmpegHandle_onFrameCallback(JNIEnv *env, job
     pFrameYUV->height = yuv_height;
 
     av_init_packet(&enc_pkt);
-    __android_log_print(ANDROID_LOG_WARN, "eric", "时间:%d",
-                        (int) ((av_gettime() - startTime) / 1000));
+//    __android_log_print(ANDROID_LOG_WARN, "eric", "编码前时间:%lld",
+//                        (long long) ((av_gettime() - startTime) / 1000));
     ret = avcodec_send_frame(pCodecCtx, pFrameYUV);
     if (ret != 0) {
         logw("avcodec_send_frame failed");
         return -1;
     }
     ret = avcodec_receive_packet(pCodecCtx, &enc_pkt);
-    __android_log_print(ANDROID_LOG_WARN, "eric", "时间:%d",
-                        (int) ((av_gettime() - startTime) / 1000));
+//    __android_log_print(ANDROID_LOG_WARN, "eric", "编码时间:%lld",
+//                        (long long) ((av_gettime() - startTime) / 1000));
     av_frame_free(&pFrameYUV);
     if (ret != 0 || enc_pkt.size <= 0) {
         loge("avcodec_receive_packet error");
@@ -464,27 +458,26 @@ Java_com_wangheart_rtmpfile_ffmpeg_FFmpegHandle_onFrameCallback(JNIEnv *env, job
         return -2;
     }
     count++;
-    __android_log_print(ANDROID_LOG_WARN, "eric", "index:%d", count);
     enc_pkt.stream_index = video_st->index;
-    //Write PTS
     AVRational time_base = ofmt_ctx->streams[0]->time_base;//{ 1, 1000 };
-    __android_log_print(ANDROID_LOG_WARN, "eric", "time_base:%d,%d", time_base.num, time_base.den);
     //Duration between 2 frames (us)
     enc_pkt.pts = count * (video_st->time_base.den) / ((video_st->time_base.num) * fps);
-    __android_log_print(ANDROID_LOG_WARN, "eric", "pts:%ld", (long) enc_pkt.pts);
     enc_pkt.dts = enc_pkt.pts;
-    __android_log_print(ANDROID_LOG_WARN, "eric", "dts:%ld", (long) enc_pkt.dts);
     enc_pkt.duration = (video_st->time_base.den) / ((video_st->time_base.num) * fps);
-    __android_log_print(ANDROID_LOG_WARN, "eric", "duration:%ld", (long) enc_pkt.duration);
+    __android_log_print(ANDROID_LOG_WARN, "eric", "index:%d,pts:%lld,dts:%lld,duration:%lld,time_base:%d,%d",
+                        count,
+                        (long long) enc_pkt.pts,
+                        (long long) enc_pkt.dts,
+                        (long long) enc_pkt.duration,
+                        time_base.num, time_base.den);
     enc_pkt.pos = -1;
     ret = av_interleaved_write_frame(ofmt_ctx, &enc_pkt);
     if (ret != 0) {
         loge("av_interleaved_write_frame failed");
     }
     env->ReleaseByteArrayElements(buffer_, in, 0);
-    __android_log_print(ANDROID_LOG_WARN, "eric", "时间:%d",
-                        (int) ((av_gettime() - startTime) / 1000));
-    startTime = av_gettime();
+//    __android_log_print(ANDROID_LOG_WARN, "eric", "编码时间:%lld",
+//                        (long long) ((av_gettime() - startTime) / 1000));
     return 0;
 
 }
