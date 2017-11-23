@@ -337,6 +337,7 @@ Java_com_wangheart_rtmpfile_ffmpeg_FFmpegHandle_initVideo(JNIEnv *env, jobject i
     const char *out_path = env->GetStringUTFChars(url_, 0);
     logd(out_path);
 
+    //计算yuv数据的长度
     yuv_width = width;
     yuv_height = height;
     y_length = width * height;
@@ -439,8 +440,7 @@ Java_com_wangheart_rtmpfile_ffmpeg_FFmpegHandle_onFrameCallback(JNIEnv *env, job
 //    startTime = av_gettime();
     jbyte *in = env->GetByteArrayElements(buffer_, NULL);
 
-    int ret;
-    int i = 0;
+    int ret = 0;
 
     pFrameYUV = av_frame_alloc();
     int picture_size = av_image_get_buffer_size(pCodecCtx->pix_fmt, pCodecCtx->width,
@@ -448,16 +448,19 @@ Java_com_wangheart_rtmpfile_ffmpeg_FFmpegHandle_onFrameCallback(JNIEnv *env, job
     uint8_t *buffers = (uint8_t *) av_malloc(picture_size);
 
 
+    //将buffers的地址赋给AVFrame中的图像数据，根据像素格式判断有几个数据指针
     av_image_fill_arrays(pFrameYUV->data, pFrameYUV->linesize, buffers, pCodecCtx->pix_fmt,
                          pCodecCtx->width, pCodecCtx->height, 1);
 
     //安卓摄像头数据为NV21格式，此处将其转换为YUV420P格式
-
+    ////N21   0~width * height是Y分量，  width*height~ width*height*3/2是VU交替存储
+    //复制Y分量的数据
     memcpy(pFrameYUV->data[0], in, y_length); //Y
     pFrameYUV->pts = count;
-
-    for (i = 0; i < uv_length; i++) {
+    for (int i = 0; i < uv_length; i++) {
+        //将v数据存到第三个平面
         *(pFrameYUV->data[2] + i) = *(in + y_length + i * 2);
+        //将U数据存到第二个平面
         *(pFrameYUV->data[1] + i) = *(in + y_length + i * 2 + 1);
     }
 
@@ -465,17 +468,22 @@ Java_com_wangheart_rtmpfile_ffmpeg_FFmpegHandle_onFrameCallback(JNIEnv *env, job
     pFrameYUV->width = yuv_width;
     pFrameYUV->height = yuv_height;
 
+    //例如对于H.264来说。1个AVPacket的data通常对应一个NAL
+    //初始化AVPacket
     av_init_packet(&enc_pkt);
 //    __android_log_print(ANDROID_LOG_WARN, "eric", "编码前时间:%lld",
 //                        (long long) ((av_gettime() - startTime) / 1000));
+    //开始编码YUV数据
     ret = avcodec_send_frame(pCodecCtx, pFrameYUV);
     if (ret != 0) {
-        logw("avcodec_send_frame failed");
+        logw("avcodec_send_frame error");
         return -1;
     }
+    //获取编码后的数据
     ret = avcodec_receive_packet(pCodecCtx, &enc_pkt);
 //    __android_log_print(ANDROID_LOG_WARN, "eric", "编码时间:%lld",
 //                        (long long) ((av_gettime() - startTime) / 1000));
+    //是否编码前的YUV数据
     av_frame_free(&pFrameYUV);
     if (ret != 0 || enc_pkt.size <= 0) {
         loge("avcodec_receive_packet error");
@@ -485,7 +493,6 @@ Java_com_wangheart_rtmpfile_ffmpeg_FFmpegHandle_onFrameCallback(JNIEnv *env, job
     count++;
     enc_pkt.stream_index = video_st->index;
     AVRational time_base = ofmt_ctx->streams[0]->time_base;//{ 1, 1000 };
-    //Duration between 2 frames (us)
     enc_pkt.pts = count * (video_st->time_base.den) / ((video_st->time_base.num) * fps);
     enc_pkt.dts = enc_pkt.pts;
     enc_pkt.duration = (video_st->time_base.den) / ((video_st->time_base.num) * fps);
@@ -502,17 +509,8 @@ Java_com_wangheart_rtmpfile_ffmpeg_FFmpegHandle_onFrameCallback(JNIEnv *env, job
         loge("av_interleaved_write_frame failed");
     }
     env->ReleaseByteArrayElements(buffer_, in, 0);
-//    __android_log_print(ANDROID_LOG_WARN, "eric", "编码时间:%lld",
-//                        (long long) ((av_gettime() - startTime) / 1000));
     return 0;
 
-}
-
-extern "C"
-JNIEXPORT jint JNICALL
-Java_com_wangheart_rtmpfile_ffmpeg_FFmpegHandle_flush(JNIEnv *env, jobject instance) {
-
-    return 0;
 }
 
 /**
@@ -523,7 +521,10 @@ JNIEXPORT jint JNICALL
 Java_com_wangheart_rtmpfile_ffmpeg_FFmpegHandle_close(JNIEnv *env, jobject instance) {
     if (video_st)
         avcodec_close(video_st->codec);
-    avio_close(ofmt_ctx->pb);
-    avformat_free_context(ofmt_ctx);
+    if (ofmt_ctx) {
+        avio_close(ofmt_ctx->pb);
+        avformat_free_context(ofmt_ctx);
+        ofmt_ctx = NULL;
+    }
     return 0;
 }

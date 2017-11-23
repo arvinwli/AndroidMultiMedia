@@ -48,7 +48,5 @@ public class FFmpegHandle {
 
     public native int onFrameCallback(byte[] buffer);
 
-    public native int flush();
-
     public native int close();
 }

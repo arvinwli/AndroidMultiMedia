@@ -91,7 +91,6 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback {
     @Override
     protected void onPause() {
         super.onPause();
-        FFmpegHandle.getInstance().flush();
         releaseCamera();
     }
 
