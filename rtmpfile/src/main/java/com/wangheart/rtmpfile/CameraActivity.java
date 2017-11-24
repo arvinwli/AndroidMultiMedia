@@ -68,7 +68,7 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback {
         mHolder = sv.getHolder();
         mHolder.addCallback(this);
         String path = Environment.getExternalStorageDirectory().getAbsolutePath() + File.separator + "CameraDemo1" + File.separator + "test.flv";
-        FFmpegHandle.getInstance().initVideo(path);
+        FFmpegHandle.getInstance().initVideo(url);
     }
 
     @Override
@@ -103,8 +103,15 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback {
                 try {
                     Camera.Parameters parameters = camera.getParameters();
                     //对拍照参数进行设置
+                    for (Camera.Size size : parameters.getSupportedPictureSizes()) {
+                        LogUtils.d(size.width + "  " + size.height);
+                    }
+                    LogUtils.d("============");
+                    for (Camera.Size size : parameters.getSupportedPreviewSizes()) {
+                        LogUtils.d(size.width + "  " + size.height);
+                    }
                     parameters.setPreviewSize(screenWidth, screenHeight); // 设置预览照片的大小
-                    parameters.setPreviewFpsRange(20000, 30000);
+                    parameters.setPreviewFpsRange(30000, 30000);
                     parameters.setPictureFormat(ImageFormat.NV21); // 设置图片格式
                     parameters.setPictureSize(screenWidth, screenHeight); // 设置照片的大小
                     camera.setParameters(parameters);
@@ -178,7 +185,7 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback {
             if (mData != null) {
                 encodeTime = System.currentTimeMillis();
                 FFmpegHandle.getInstance().onFrameCallback(mData);
-                LogUtils.d(count++ + "消耗时间:" + (System.currentTimeMillis() - encodeTime));
+                LogUtils.d((++count) + "消耗时间:" + (System.currentTimeMillis() - encodeTime));
             }
             return null;
         }
@@ -215,7 +222,7 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback {
                     LogUtils.w("编码第:" + (encodeCount++) + "帧，耗时:" + (System.currentTimeMillis() - encodeTime));
                 }
             });
-            LogUtils.d("采集第:" + (count++) + "帧，距上一帧间隔时间:"
+            LogUtils.d("采集第:" + (++count) + "帧，距上一帧间隔时间:"
                     + (endTime - previewTime) + "  " + Thread.currentThread().getName());
             previewTime = endTime;
         }

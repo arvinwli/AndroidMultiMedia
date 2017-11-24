@@ -325,7 +325,7 @@ int y_length;
 int uv_length;
 int width = 480;
 int height = 320;
-int fps = 20;
+int fps = 15;
 
 /**
  * 初始化
@@ -490,7 +490,6 @@ Java_com_wangheart_rtmpfile_ffmpeg_FFmpegHandle_onFrameCallback(JNIEnv *env, job
         avError(ret);
         return -2;
     }
-    count++;
     enc_pkt.stream_index = video_st->index;
     AVRational time_base = ofmt_ctx->streams[0]->time_base;//{ 1, 1000 };
     enc_pkt.pts = count * (video_st->time_base.den) / ((video_st->time_base.num) * fps);
@@ -504,10 +503,25 @@ Java_com_wangheart_rtmpfile_ffmpeg_FFmpegHandle_onFrameCallback(JNIEnv *env, job
                         (long long) enc_pkt.duration,
                         time_base.num, time_base.den);
     enc_pkt.pos = -1;
+//    AVRational time_base_q = {1, AV_TIME_BASE};
+//    //计算视频播放时间
+//    int64_t pts_time = av_rescale_q(enc_pkt.dts, time_base, time_base_q);
+//    //计算实际视频的播放时间
+//    if (count == 0) {
+//        startTime = av_gettime();
+//    }
+//    int64_t now_time = av_gettime() - startTime;
+//    __android_log_print(ANDROID_LOG_WARN, "eric", "delt time :%lld", (pts_time - now_time));
+//    if (pts_time > now_time) {
+//        //睡眠一段时间（目的是让当前视频记录的播放时间与实际时间同步）
+//        av_usleep((unsigned int) (pts_time - now_time));
+//    }
+
     ret = av_interleaved_write_frame(ofmt_ctx, &enc_pkt);
     if (ret != 0) {
         loge("av_interleaved_write_frame failed");
     }
+    count++;
     env->ReleaseByteArrayElements(buffer_, in, 0);
     return 0;
 
