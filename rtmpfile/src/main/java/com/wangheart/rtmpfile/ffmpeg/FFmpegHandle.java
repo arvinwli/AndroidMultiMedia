@@ -48,5 +48,9 @@ public class FFmpegHandle {
 
     public native int onFrameCallback(byte[] buffer);
 
+    public native int sendH264(byte[] buffer,int len);
+
+    public native int initVideo2(String url);
+
     public native int close();
 }

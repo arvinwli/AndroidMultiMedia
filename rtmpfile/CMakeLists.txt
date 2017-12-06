@@ -19,7 +19,8 @@ add_library( # Sets the name of the library.
              SHARED
 
              # Provides a relative path to your source file(s).
-             src/main/cpp/ffmpeg_handle.cpp )
+             src/main/cpp/ffmpeg_handle.cpp
+             src/main/cpp/ffmpeg_rtmp.cpp)
 
 #引用的头文件
 include_directories(

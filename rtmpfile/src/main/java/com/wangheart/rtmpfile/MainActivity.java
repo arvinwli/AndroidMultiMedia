@@ -39,4 +39,8 @@ public class MainActivity extends Activity {
         startActivity(intent);
     }
 
+    public void btnMediaCodec(View view) {
+        Intent intent = new Intent(this, CameraMediaCodecActivity.class);
+        startActivity(intent);
+    }
 }

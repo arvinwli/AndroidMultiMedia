@@ -26,5 +26,10 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:onClick="btnCamera"
-        android:text="开启摄像头进行视频编码" />
+        android:text="开启摄像头进行视频编码(FFmpeg)" />
+    <Button
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:onClick="btnMediaCodec"
+        android:text="开启摄像头进行视频编码(MediaCodec)" />
 </LinearLayout>
