@@ -14,12 +14,16 @@ import android.view.View;
 import android.widget.Toast;
 
 import com.wangheart.rtmpfile.ffmpeg.FFmpegHandle;
+import com.wangheart.rtmpfile.flv.FlvPacker;
+import com.wangheart.rtmpfile.flv.Packer;
+import com.wangheart.rtmpfile.utils.IOUtils;
 import com.wangheart.rtmpfile.utils.LogUtils;
 
 import org.jetbrains.annotations.Nullable;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.nio.ByteBuffer;
@@ -55,9 +59,10 @@ public class CameraMediaCodecActivity extends Activity implements SurfaceHolder.
     private StreamIt mStreamIt;
     private MediaCodec mMediaCodec;
     private static final String VCODEC_MIME = "video/avc";
-    byte[] mPpsSps = new byte[0];
     private final String DATA_DIR = Environment.getExternalStorageDirectory() + File.separator + "AndroidVideo";
-
+    private FlvPacker mFlvPacker;
+    private final int FRAME_RATE = 15;
+    private OutputStream mOutStream;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -70,13 +75,23 @@ public class CameraMediaCodecActivity extends Activity implements SurfaceHolder.
         FFmpegHandle.getInstance().initVideo(url);
         sv = findViewById(R.id.sv);
         initMediaCodec();
+        mFlvPacker = new FlvPacker();
+        mFlvPacker.initVideoParams(WIDTH, HEIGHT, FRAME_RATE);
+        mFlvPacker.setPacketListener(new Packer.OnPacketListener() {
+            @Override
+            public void onPacket(byte[] data, int packetType) {
+                IOUtils.write(mOutStream, data, 0, data.length);
+                LogUtils.w(data.length + " " + packetType);
+            }
+        });
         mStreamIt = new StreamIt();
         CameraInterface.getInstance().openCamera(1);
         Camera.Parameters params = CameraInterface.getInstance().getParams();
         params.setPictureFormat(ImageFormat.YV12);
+        params.setPreviewFormat(ImageFormat.YV12);
         params.setPictureSize(WIDTH, HEIGHT);
         params.setPreviewSize(WIDTH, HEIGHT);
-        params.setPreviewFpsRange(30000, 30000);
+        params.setPreviewFpsRange(15000, 20000);
         List<String> focusModes = params.getSupportedFocusModes();
         if (focusModes.contains("continuous-video")) {
             params.setFocusMode(Camera.Parameters.FOCUS_MODE_CONTINUOUS_VIDEO);
@@ -89,8 +104,7 @@ public class CameraMediaCodecActivity extends Activity implements SurfaceHolder.
     }
 
     private void initMediaCodec() {
-        int framerate = 15;
-        int bitrate = 2 * WIDTH * HEIGHT * framerate / 20;
+        int bitrate = 2 * WIDTH * HEIGHT * FRAME_RATE / 20;
         try {
             MediaCodecInfo mediaCodecInfo = selectCodec(VCODEC_MIME);
             if (mediaCodecInfo == null) {
@@ -101,7 +115,7 @@ public class CameraMediaCodecActivity extends Activity implements SurfaceHolder.
             mMediaCodec = MediaCodec.createByCodecName(mediaCodecInfo.getName());
             MediaFormat mediaFormat = MediaFormat.createVideoFormat(VCODEC_MIME, WIDTH, HEIGHT);
             mediaFormat.setInteger(MediaFormat.KEY_BIT_RATE, bitrate);
-            mediaFormat.setInteger(MediaFormat.KEY_FRAME_RATE, framerate);
+            mediaFormat.setInteger(MediaFormat.KEY_FRAME_RATE, FRAME_RATE);
             mediaFormat.setInteger(MediaFormat.KEY_COLOR_FORMAT,
                     MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Planar);
             mediaFormat.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 1);
@@ -157,7 +171,10 @@ public class CameraMediaCodecActivity extends Activity implements SurfaceHolder.
 
     @Override
     public void surfaceCreated(SurfaceHolder holder) {
+        mFlvPacker.start();
+        mOutStream = IOUtils.open(DATA_DIR + File.separator + "/easy.flv", true);
         CameraInterface.getInstance().startPreview(mHolder, mStreamIt);
+
     }
 
     @Override
@@ -166,8 +183,10 @@ public class CameraMediaCodecActivity extends Activity implements SurfaceHolder.
 
     @Override
     public void surfaceDestroyed(SurfaceHolder holder) {
+        mFlvPacker.stop();
         CameraInterface.getInstance().stopPreview();
         CameraInterface.getInstance().releaseCamera();
+        IOUtils.close(mOutStream);
     }
 
     ExecutorService executor = Executors.newSingleThreadExecutor();
@@ -183,7 +202,7 @@ public class CameraMediaCodecActivity extends Activity implements SurfaceHolder.
                 @Override
                 public void run() {
                     encodeTime = System.currentTimeMillis();
-                    encode(data);
+                    flvPackage(data);
                     LogUtils.w("编码第:" + (encodeCount++) + "帧，耗时:" + (System.currentTimeMillis() - encodeTime));
                 }
             });
@@ -193,27 +212,20 @@ public class CameraMediaCodecActivity extends Activity implements SurfaceHolder.
         }
     }
 
-    /**
-     * 预览格式设置为NV21，两个平面，第一个平面Y 第二个平面VUVU交替。
-     * 编码器颜色格式 COLOR_FormatYUV420SemiPlanar 则是UVUV交替
-     * <p>
-     * 览格式设置为YV12,三个平面，第一个平面Y 第二个平面V，第三个U。
-     * 编码器颜色格式COLOR_FormatYUV420Planar 则是 第二个平面U，第三个V
-     *
-     * @param buf
-     */
-    private void encode(byte[] buf) {
-        long startTime = System.currentTimeMillis();
-        int length = buf.length;
+
+    private void flvPackage(byte[] buf) {
+        final int LENGTH = HEIGHT * WIDTH;
         //YV12数据转化成COLOR_FormatYUV420Planar
-        for (int i = (WIDTH * HEIGHT); i < length / 4; i++) {
+        LogUtils.d(LENGTH + "  " + (buf.length - LENGTH));
+        for (int i = LENGTH; i < (LENGTH + LENGTH / 4); i++) {
             byte temp = buf[i];
-            buf[i] = buf[i + length / 4];
-            buf[i + length / 4] = temp;
+            buf[i] = buf[i + LENGTH / 4];
+            buf[i + LENGTH / 4] = temp;
+//            char x = 128;
+//            buf[i] = (byte) x;
         }
         ByteBuffer[] inputBuffers = mMediaCodec.getInputBuffers();
         ByteBuffer[] outputBuffers = mMediaCodec.getOutputBuffers();
-        byte[] dst = new byte[buf.length];
         try {
             //查找可用的的input buffer用来填充有效数据
             int bufferIndex = mMediaCodec.dequeueInputBuffer(-1);
@@ -221,7 +233,7 @@ public class CameraMediaCodecActivity extends Activity implements SurfaceHolder.
                 //数据放入到inputBuffer中
                 ByteBuffer inputBuffer = inputBuffers[bufferIndex];
                 inputBuffer.clear();
-                inputBuffer.put(buf, 0, length);
+                inputBuffer.put(buf, 0, buf.length);
                 //把数据传给编码器并进行编码
                 mMediaCodec.queueInputBuffer(bufferIndex, 0,
                         inputBuffers[bufferIndex].position(),
@@ -232,27 +244,9 @@ public class CameraMediaCodecActivity extends Activity implements SurfaceHolder.
                 int outputBufferIndex = mMediaCodec.dequeueOutputBuffer(bufferInfo, 0);
                 while (outputBufferIndex >= 0) {
                     ByteBuffer outputBuffer = outputBuffers[outputBufferIndex];
-                    byte[] outData = new byte[bufferInfo.size];
-                    //把数据复制到outData中。
-                    outputBuffer.get(outData);
-                    //记录pps和sps
-                    //103==01100111    101=01100101
-                    if (outData[0] == 0 && outData[1] == 0 && outData[2] == 0 && outData[3] == 1 && outData[4] == 103) {
-                        LogUtils.w("pps sps :" + Arrays.toString(outData));
-                        mPpsSps = outData;
-                    } else if (outData[0] == 0 && outData[1] == 0 && outData[2] == 0 && outData[3] == 1 && outData[4] == 101) {
-                        //在关键帧前面加上pps和sps数据
-                        byte[] iframeData = new byte[mPpsSps.length + outData.length];
-                        System.arraycopy(mPpsSps, 0, iframeData, 0, mPpsSps.length);
-                        System.arraycopy(outData, 0, iframeData, mPpsSps.length, outData.length);
-                        outData = iframeData;
-                    }
-//                    FFmpegHandle.getInstance().sendH264(outData, outData.length);
                     //保存到文件中
-//                    FileUtil.save(outData, 0, outData.length, DATA_DIR + File.separator + "/eric.h264", true);
-                    FFmpegHandle.getInstance().sendH264(outData, outData.length);
+                    mFlvPacker.onVideoData(outputBuffer, bufferInfo);
                     mMediaCodec.releaseOutputBuffer(outputBufferIndex, false);
-                    //循环查找是否还有已编码成功的数据。
                     outputBufferIndex = mMediaCodec.dequeueOutputBuffer(bufferInfo, 0);
                 }
             } else {
@@ -265,10 +259,6 @@ public class CameraMediaCodecActivity extends Activity implements SurfaceHolder.
             String stack = sw.toString();
             LogUtils.e(stack);
             e.printStackTrace();
-        } finally {
-            LogUtils.d("encode time " + (System.currentTimeMillis() - startTime));
-            CameraInterface.getInstance().getCamera().addCallbackBuffer(dst);
         }
     }
-
 }
