@@ -24,8 +24,6 @@ import org.jetbrains.annotations.Nullable;
 import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.io.PrintWriter;
-import java.io.StringWriter;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.List;
@@ -244,7 +242,7 @@ public class CameraMediaCodecActivity extends Activity implements SurfaceHolder.
                 int outputBufferIndex = mMediaCodec.dequeueOutputBuffer(bufferInfo, 0);
                 while (outputBufferIndex >= 0) {
                     ByteBuffer outputBuffer = outputBuffers[outputBufferIndex];
-                    //保存到文件中
+                    //进行flv封装
                     mFlvPacker.onVideoData(outputBuffer, bufferInfo);
                     mMediaCodec.releaseOutputBuffer(outputBufferIndex, false);
                     outputBufferIndex = mMediaCodec.dequeueOutputBuffer(bufferInfo, 0);
@@ -253,11 +251,6 @@ public class CameraMediaCodecActivity extends Activity implements SurfaceHolder.
                 LogUtils.w("No buffer available !");
             }
         } catch (Exception e) {
-            StringWriter sw = new StringWriter();
-            PrintWriter pw = new PrintWriter(sw);
-            e.printStackTrace(pw);
-            String stack = sw.toString();
-            LogUtils.e(stack);
             e.printStackTrace();
         }
     }
