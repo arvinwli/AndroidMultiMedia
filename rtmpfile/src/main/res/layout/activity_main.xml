@@ -32,4 +32,9 @@
         android:layout_height="wrap_content"
         android:onClick="btnMediaCodec"
         android:text="开启摄像头进行视频编码(MediaCodec)" />
+    <Button
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:onClick="librmtp"
+        android:text="librmtp" />
 </LinearLayout>

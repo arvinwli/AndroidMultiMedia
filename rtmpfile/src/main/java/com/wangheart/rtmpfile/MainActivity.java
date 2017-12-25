@@ -3,10 +3,15 @@ package com.wangheart.rtmpfile;
 import android.app.Activity;
 import android.content.Intent;
 import android.os.Bundle;
+import android.os.Environment;
 import android.view.View;
 import android.widget.TextView;
 
 import com.wangheart.rtmpfile.ffmpeg.FFmpegHandle;
+import com.wangheart.rtmpfile.rtmp.RtmpHandle;
+import com.wangheart.rtmpfile.utils.LogUtils;
+
+import java.io.File;
 
 public class MainActivity extends Activity {
     private TextView tvCodecInfo;
@@ -42,5 +47,18 @@ public class MainActivity extends Activity {
     public void btnMediaCodec(View view) {
         Intent intent = new Intent(this, CameraMediaCodecActivity.class);
         startActivity(intent);
+    }
+
+    public void librmtp(View view) {
+        new Thread(){
+            @Override
+            public void run() {
+                super.run();
+                final String path = Environment.getExternalStorageDirectory().getAbsolutePath() + File.separator + "dongfengpo.flv";
+                File file = new File(path);
+                LogUtils.d(path + "  " + file.exists());
+                RtmpHandle.getInstance().pushFile(path);
+            }
+        }.start();
     }
 }

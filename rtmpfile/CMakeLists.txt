@@ -20,7 +20,7 @@ add_library( # Sets the name of the library.
 
              # Provides a relative path to your source file(s).
              src/main/cpp/ffmpeg_handle.cpp
-             src/main/cpp/ffmpeg_rtmp.cpp)
+             src/main/cpp/rtmp_handle.cpp)
 
 #引用的头文件
 include_directories(
@@ -63,6 +63,11 @@ set_target_properties(swscale
   PROPERTIES IMPORTED_LOCATION
   ${CMAKE_SOURCE_DIR}/src/main/jniLibs/${ANDROID_ABI}/libswscale-4.so)
 
+add_library(rtmp SHARED IMPORTED)
+set_target_properties(rtmp
+  PROPERTIES IMPORTED_LOCATION
+  ${CMAKE_SOURCE_DIR}/src/main/jniLibs/${ANDROID_ABI}/librtmp.so)
+
 # Searches for a specified prebuilt library and stores the path as a
 # variable. Because CMake includes system libraries in the search path by
 # default, you only need to specify the name of the public NDK library
@@ -90,6 +95,7 @@ target_link_libraries( # Specifies the target library.
                        avutil
                        swresample
                        swscale
+                       rtmp
                        # Links the target library to the log library
                        # included in the NDK.
                        ${log-lib} )
