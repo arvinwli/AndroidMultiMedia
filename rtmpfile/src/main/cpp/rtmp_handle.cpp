@@ -204,7 +204,7 @@ int publish_using_packet(const char *path) {
         __android_log_print(ANDROID_LOG_WARN, "eric",
                             "%ld,%ld", pre_frame_time, (RTMP_GetTime() - start_time));
         if (delt < pre_frame_time) {
-            usleep((pre_frame_time - delt)*1000);
+            usleep((pre_frame_time - delt) * 1000);
         }
         if (!RTMP_IsConnected(rtmp)) {
             RTMP_Log(RTMP_LOGERROR, "rtmp is not connect\n");
@@ -273,3 +273,146 @@ Java_com_wangheart_rtmpfile_rtmp_RtmpHandle_pushFile(JNIEnv *env, jobject instan
     env->ReleaseStringUTFChars(path_, path);
 }
 
+
+RTMP *rtmp = NULL;
+RTMPPacket *packet = NULL;
+
+/*
+ * 进行RTMP连接
+ */
+extern "C"
+JNIEXPORT jint JNICALL
+Java_com_wangheart_rtmpfile_rtmp_RtmpHandle_connect(JNIEnv *env, jobject instance, jstring url_) {
+    const char *url = env->GetStringUTFChars(url_, 0);
+    int len = strlen(url);
+
+//    char *rtmpUrl = NULL;
+//    malloc(len);
+//    memcpy(rtmpUrl, url, len);
+
+    __android_log_print(ANDROID_LOG_WARN, "eric",
+                        "%d,%s",
+                        len, url);
+    rtmp = RTMP_Alloc();
+    RTMP_Init(rtmp);
+    //set connection timeout,default 30s
+    rtmp->Link.timeout = 5;
+    if (!RTMP_SetupURL(rtmp, "rtmp://192.168.31.127/live")) {
+        RTMP_Log(RTMP_LOGERROR, "SetupURL Err\n");
+        RTMP_Free(rtmp);
+        CleanupSockets();
+        return -1;
+    }
+    logw("RTMP_SetupURL");
+
+    //if unable,the AMF command would be 'play' instead of 'publish'
+    RTMP_EnableWrite(rtmp);
+
+    if (!RTMP_Connect(rtmp, NULL)) {
+        RTMP_Log(RTMP_LOGERROR, "Connect Err\n");
+        RTMP_Free(rtmp);
+        CleanupSockets();
+        return -1;
+    }
+    logw("RTMP_Connect");
+
+
+    if (!RTMP_ConnectStream(rtmp, 0)) {
+        RTMP_Log(RTMP_LOGERROR, "ConnectStream Err\n");
+        RTMP_Close(rtmp);
+        RTMP_Free(rtmp);
+        CleanupSockets();
+        return -1;
+    }
+    logw("RTMP_ConnectStream");
+
+
+    packet = (RTMPPacket *) malloc(sizeof(RTMPPacket));
+    RTMPPacket_Alloc(packet, 1024 * 64);
+    RTMPPacket_Reset(packet);
+
+    packet->m_hasAbsTimestamp = 0;
+    packet->m_nChannel = 0x04;
+    packet->m_nInfoField2 = rtmp->m_stream_id;
+    logw("Start to send data ...");
+
+    RTMP_LogPrintf("Start to send data ...\n");
+    env->ReleaseStringUTFChars(url_, url);
+    return 0;
+}
+
+
+extern "C"
+JNIEXPORT jint JNICALL
+Java_com_wangheart_rtmpfile_rtmp_RtmpHandle_push(JNIEnv *env, jobject instance, jbyteArray buf_,
+                                                 jint length) {
+    jbyte *buf = env->GetByteArrayElements(buf_, NULL);
+    // TODO
+    if (length < 15) {
+        return -1;
+    }
+    //packet attributes
+    uint32_t type = 0;
+    uint32_t datalength = 0;
+    uint32_t timestamp = 0;
+    uint32_t streamid = 0;
+
+    memcpy(&type, buf, 1);
+    buf++;
+    memcpy(&datalength, buf, 3);
+    __android_log_print(ANDROID_LOG_WARN, "eric",
+                        "datalength=>%u",
+                         datalength);
+    char *x= (char *) &type;
+    for(int i=0;i<4;i++){
+        __android_log_print(ANDROID_LOG_WARN, "eric",
+                            "x=>%d",
+                            *x);
+        x++;
+    }
+    x= (char *) &datalength;
+    for(int i=0;i<4;i++){
+        __android_log_print(ANDROID_LOG_WARN, "eric",
+                            "x=>%d",
+                            *x);
+        x++;
+    }
+
+    datalength = HTON24(datalength);
+    buf += 3;
+    memcpy(&timestamp, buf, 4);
+    timestamp = HTONTIME(timestamp);
+    buf += 4;
+    memcpy(&streamid, buf, 3);
+    streamid = HTON24(streamid);
+    buf += 3;
+
+    __android_log_print(ANDROID_LOG_WARN, "eric",
+                        "%u,%u,%u,%u,%d",
+                        type, datalength, timestamp, streamid,length);
+
+    if (type != 0x08 && type != 0x09) {
+        return -3;
+    }
+    if (datalength != (length - 11 - 4)) {
+        return -4;
+    }
+
+    memcpy(packet->m_body, buf, length - 11 - 4);
+
+    packet->m_headerType = RTMP_PACKET_SIZE_LARGE;
+    packet->m_nTimeStamp = timestamp;
+    packet->m_packetType = type;
+    packet->m_nBodySize = datalength;
+    printf("%ld\n", timestamp);
+    if (!RTMP_IsConnected(rtmp)) {
+        RTMP_Log(RTMP_LOGERROR, "rtmp is not connect\n");
+        return -1;
+    }
+    if (!RTMP_SendPacket(rtmp, packet, 0)) {
+        RTMP_Log(RTMP_LOGERROR, "Send Error\n");
+        return -2;
+    }
+    env->ReleaseByteArrayElements(buf_, buf, 0);
+    return 0;
+}

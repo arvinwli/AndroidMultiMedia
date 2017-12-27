@@ -16,6 +16,7 @@ import android.widget.Toast;
 import com.wangheart.rtmpfile.ffmpeg.FFmpegHandle;
 import com.wangheart.rtmpfile.flv.FlvPacker;
 import com.wangheart.rtmpfile.flv.Packer;
+import com.wangheart.rtmpfile.rtmp.RtmpHandle;
 import com.wangheart.rtmpfile.utils.IOUtils;
 import com.wangheart.rtmpfile.utils.LogUtils;
 
@@ -69,6 +70,8 @@ public class CameraMediaCodecActivity extends Activity implements SurfaceHolder.
         init();
     }
 
+    ExecutorService pushExecutor = Executors.newSingleThreadExecutor();
+
     private void init() {
         FFmpegHandle.getInstance().initVideo(url);
         sv = findViewById(R.id.sv);
@@ -77,9 +80,15 @@ public class CameraMediaCodecActivity extends Activity implements SurfaceHolder.
         mFlvPacker.initVideoParams(WIDTH, HEIGHT, FRAME_RATE);
         mFlvPacker.setPacketListener(new Packer.OnPacketListener() {
             @Override
-            public void onPacket(byte[] data, int packetType) {
-                IOUtils.write(mOutStream, data, 0, data.length);
-                LogUtils.w(data.length + " " + packetType);
+            public void onPacket(final byte[] data, final int packetType) {
+//                IOUtils.write(mOutStream, data, 0, data.length);
+                pushExecutor.execute(new Runnable() {
+                    @Override
+                    public void run() {
+                        int ret=RtmpHandle.getInstance().push(data, data.length);
+                        LogUtils.w(data.length + " " + packetType + "  ret:"+ret);
+                    }
+                });
             }
         });
         mStreamIt = new StreamIt();
@@ -172,7 +181,13 @@ public class CameraMediaCodecActivity extends Activity implements SurfaceHolder.
         mFlvPacker.start();
         mOutStream = IOUtils.open(DATA_DIR + File.separator + "/easy.flv", true);
         CameraInterface.getInstance().startPreview(mHolder, mStreamIt);
-
+        pushExecutor.execute(new Runnable() {
+            @Override
+            public void run() {
+                int ret = RtmpHandle.getInstance().connect("rtmp://192.168.31.127/live");
+                LogUtils.w("connect ret " + ret);
+            }
+        });
     }
 
     @Override

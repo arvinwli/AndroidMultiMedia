@@ -27,4 +27,12 @@ public class RtmpHandle {
     }
 
     public native void pushFile(String path);
+
+    public native int connect(String url);
+
+
+    public native int push(byte[] buf, int length);
+
+
+//    public native void close();
 }
