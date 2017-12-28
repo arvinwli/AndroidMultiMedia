@@ -30,9 +30,7 @@ public class RtmpHandle {
 
     public native int connect(String url);
 
-
     public native int push(byte[] buf, int length);
 
-
-//    public native void close();
+    public native int close();
 }

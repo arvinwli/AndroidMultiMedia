@@ -82,27 +82,23 @@ int ReadTime(uint32_t *utime, FILE *fp) {
     return 1;
 }
 
-int InitSockets() {
-/*    WORD version;
-    WSADATA wsaData;
-    version=MAKEWORD(2,2);
-    return (WSAStartup(version, &wsaData) == 0);*/
-    return 1;
-}
 
-void CleanupSockets() {
-//    WSACleanup();
-}
+
+/*
+ * ===========================================================================
+ *
+ *      解析FLV文件并使用RTMPDump进行推流
+ *
+ * ===========================================================================
+ */
 
 //Publish using RTMP_SendPacket()
 int publish_using_packet(const char *path) {
     RTMP *rtmp = NULL;
     RTMPPacket *packet = NULL;
     uint32_t start_time = 0;
-    uint32_t now_time = 0;
     //the timestamp of the previous frame
     long pre_frame_time = 0;
-    long lasttime = 0;
     int bNextIsKey = 1;
     uint32_t preTagsize = 0;
 
@@ -116,18 +112,9 @@ int publish_using_packet(const char *path) {
     fp = fopen(path, "rb");
     if (!fp) {
         RTMP_LogPrintf("Open File Error.\n");
-        CleanupSockets();
         return -1;
     }
 
-    /* set log level */
-    //RTMP_LogLevel loglvl=RTMP_LOGDEBUG;
-    //RTMP_LogSetLevel(loglvl);
-
-    if (!InitSockets()) {
-        RTMP_LogPrintf("Init Socket Err\n");
-        return -1;
-    }
 
     rtmp = RTMP_Alloc();
     RTMP_Init(rtmp);
@@ -136,7 +123,6 @@ int publish_using_packet(const char *path) {
     if (!RTMP_SetupURL(rtmp, "rtmp://192.168.31.127/live")) {
         RTMP_Log(RTMP_LOGERROR, "SetupURL Err\n");
         RTMP_Free(rtmp);
-        CleanupSockets();
         return -1;
     }
 
@@ -146,7 +132,6 @@ int publish_using_packet(const char *path) {
     if (!RTMP_Connect(rtmp, NULL)) {
         RTMP_Log(RTMP_LOGERROR, "Connect Err\n");
         RTMP_Free(rtmp);
-        CleanupSockets();
         return -1;
     }
 
@@ -154,7 +139,6 @@ int publish_using_packet(const char *path) {
         RTMP_Log(RTMP_LOGERROR, "ConnectStream Err\n");
         RTMP_Close(rtmp);
         RTMP_Free(rtmp);
-        CleanupSockets();
         return -1;
     }
 
@@ -251,7 +235,6 @@ int publish_using_packet(const char *path) {
         packet = NULL;
     }
 
-    CleanupSockets();
     return 0;
 }
 
@@ -274,11 +257,19 @@ Java_com_wangheart_rtmpfile_rtmp_RtmpHandle_pushFile(JNIEnv *env, jobject instan
 }
 
 
+/*
+ * ===========================================================================
+ *
+ *      MediaCodec编码数据使用RTMPDump进行推流
+ *
+ * ===========================================================================
+ */
+
 RTMP *rtmp = NULL;
 RTMPPacket *packet = NULL;
 
 /*
- * 进行RTMP连接
+ * 初始化RTMP连接
  */
 extern "C"
 JNIEXPORT jint JNICALL
@@ -286,46 +277,43 @@ Java_com_wangheart_rtmpfile_rtmp_RtmpHandle_connect(JNIEnv *env, jobject instanc
     const char *url = env->GetStringUTFChars(url_, 0);
     int len = strlen(url);
 
-//    char *rtmpUrl = NULL;
-//    malloc(len);
-//    memcpy(rtmpUrl, url, len);
+    char *rtmpUrl = NULL;
+    rtmpUrl = (char *) malloc(len + 1);
+    memset(rtmpUrl, 0, len + 1);
+    memcpy(rtmpUrl, url, len);
 
     __android_log_print(ANDROID_LOG_WARN, "eric",
                         "%d,%s",
-                        len, url);
+                        len, rtmpUrl);
     rtmp = RTMP_Alloc();
     RTMP_Init(rtmp);
     //set connection timeout,default 30s
     rtmp->Link.timeout = 5;
-    if (!RTMP_SetupURL(rtmp, "rtmp://192.168.31.127/live")) {
+//    if (!RTMP_SetupURL(rtmp, "rtmp://192.168.31.127/live")) {
+    if (!RTMP_SetupURL(rtmp, rtmpUrl)) {
         RTMP_Log(RTMP_LOGERROR, "SetupURL Err\n");
         RTMP_Free(rtmp);
-        CleanupSockets();
         return -1;
     }
     logw("RTMP_SetupURL");
 
     //if unable,the AMF command would be 'play' instead of 'publish'
     RTMP_EnableWrite(rtmp);
-
+    logw("RTMP_EnableWrite");
     if (!RTMP_Connect(rtmp, NULL)) {
         RTMP_Log(RTMP_LOGERROR, "Connect Err\n");
         RTMP_Free(rtmp);
-        CleanupSockets();
-        return -1;
+        return -2;
     }
     logw("RTMP_Connect");
-
 
     if (!RTMP_ConnectStream(rtmp, 0)) {
         RTMP_Log(RTMP_LOGERROR, "ConnectStream Err\n");
         RTMP_Close(rtmp);
         RTMP_Free(rtmp);
-        CleanupSockets();
-        return -1;
+        return -3;
     }
     logw("RTMP_ConnectStream");
-
 
     packet = (RTMPPacket *) malloc(sizeof(RTMPPacket));
     RTMPPacket_Alloc(packet, 1024 * 64);
@@ -334,14 +322,16 @@ Java_com_wangheart_rtmpfile_rtmp_RtmpHandle_connect(JNIEnv *env, jobject instanc
     packet->m_hasAbsTimestamp = 0;
     packet->m_nChannel = 0x04;
     packet->m_nInfoField2 = rtmp->m_stream_id;
-    logw("Start to send data ...");
-
-    RTMP_LogPrintf("Start to send data ...\n");
+    logw("Ready to send data ...");
+    RTMP_LogPrintf("Ready to send data ...\n");
     env->ReleaseStringUTFChars(url_, url);
     return 0;
 }
 
 
+/**
+ * 推送数据
+ */
 extern "C"
 JNIEXPORT jint JNICALL
 Java_com_wangheart_rtmpfile_rtmp_RtmpHandle_push(JNIEnv *env, jobject instance, jbyteArray buf_,
@@ -360,23 +350,6 @@ Java_com_wangheart_rtmpfile_rtmp_RtmpHandle_push(JNIEnv *env, jobject instance, 
     memcpy(&type, buf, 1);
     buf++;
     memcpy(&datalength, buf, 3);
-    __android_log_print(ANDROID_LOG_WARN, "eric",
-                        "datalength=>%u",
-                         datalength);
-    char *x= (char *) &type;
-    for(int i=0;i<4;i++){
-        __android_log_print(ANDROID_LOG_WARN, "eric",
-                            "x=>%d",
-                            *x);
-        x++;
-    }
-    x= (char *) &datalength;
-    for(int i=0;i<4;i++){
-        __android_log_print(ANDROID_LOG_WARN, "eric",
-                            "x=>%d",
-                            *x);
-        x++;
-    }
 
     datalength = HTON24(datalength);
     buf += 3;
@@ -388,14 +361,14 @@ Java_com_wangheart_rtmpfile_rtmp_RtmpHandle_push(JNIEnv *env, jobject instance, 
     buf += 3;
 
     __android_log_print(ANDROID_LOG_WARN, "eric",
-                        "%u,%u,%u,%u,%d",
-                        type, datalength, timestamp, streamid,length);
+                        "解析包数据：%u,%u,%u,%u,%d",
+                        type, datalength, timestamp, streamid, length);
 
     if (type != 0x08 && type != 0x09) {
-        return -3;
+        return -2;
     }
     if (datalength != (length - 11 - 4)) {
-        return -4;
+        return -3;
     }
 
     memcpy(packet->m_body, buf, length - 11 - 4);
@@ -404,15 +377,35 @@ Java_com_wangheart_rtmpfile_rtmp_RtmpHandle_push(JNIEnv *env, jobject instance, 
     packet->m_nTimeStamp = timestamp;
     packet->m_packetType = type;
     packet->m_nBodySize = datalength;
-    printf("%ld\n", timestamp);
     if (!RTMP_IsConnected(rtmp)) {
         RTMP_Log(RTMP_LOGERROR, "rtmp is not connect\n");
-        return -1;
+        return -4;
     }
     if (!RTMP_SendPacket(rtmp, packet, 0)) {
         RTMP_Log(RTMP_LOGERROR, "Send Error\n");
-        return -2;
+        return -5;
     }
     env->ReleaseByteArrayElements(buf_, buf, 0);
+    return 0;
+}
+
+
+/**
+ * 关闭连接
+ */
+extern "C"
+JNIEXPORT jint JNICALL
+Java_com_wangheart_rtmpfile_rtmp_RtmpHandle_close(JNIEnv *env, jobject instance) {
+    // TODO
+    if (rtmp != NULL) {
+        RTMP_Close(rtmp);
+        RTMP_Free(rtmp);
+        rtmp = NULL;
+    }
+    if (packet != NULL) {
+        RTMPPacket_Free(packet);
+        free(packet);
+        packet = NULL;
+    }
     return 0;
 }

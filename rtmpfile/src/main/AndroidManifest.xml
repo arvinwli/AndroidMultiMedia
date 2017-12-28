@@ -19,6 +19,7 @@
         <activity android:name=".CameraActivity" />
         <activity android:name=".PushFileRtmpActivity" />
         <activity android:name=".CameraMediaCodecActivity" />
+        <activity android:name=".CameraMediaCodecRtmpActivity" />
     </application>
 
     <uses-permission android:name="android.permission.INTERNET" />

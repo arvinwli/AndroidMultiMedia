@@ -4,7 +4,7 @@
     android:layout_height="match_parent"
     android:orientation="vertical">
 
-    <com.wangheart.rtmpfile.MySurfaceView
+    <com.wangheart.rtmpfile.view.MySurfaceView
         android:id="@+id/sv"
         android:layout_width="match_parent"
         android:layout_height="match_parent" />

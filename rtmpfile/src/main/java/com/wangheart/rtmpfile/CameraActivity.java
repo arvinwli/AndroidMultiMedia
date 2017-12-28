@@ -9,6 +9,7 @@ import android.view.View;
 
 import com.wangheart.rtmpfile.ffmpeg.FFmpegHandle;
 import com.wangheart.rtmpfile.utils.LogUtils;
+import com.wangheart.rtmpfile.view.MySurfaceView;
 
 import org.jetbrains.annotations.Nullable;
 

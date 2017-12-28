@@ -1,4 +1,4 @@
-package com.wangheart.rtmpfile;
+package com.wangheart.rtmpfile.view;
 
 import android.content.Context;
 import android.util.AttributeSet;

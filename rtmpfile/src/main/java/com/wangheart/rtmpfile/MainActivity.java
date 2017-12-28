@@ -61,4 +61,9 @@ public class MainActivity extends Activity {
             }
         }.start();
     }
+
+    public void btnMediaCodecRtmp(View view) {
+        Intent intent = new Intent(this, CameraMediaCodecRtmpActivity.class);
+        startActivity(intent);
+    }
 }
