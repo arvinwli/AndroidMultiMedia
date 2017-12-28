@@ -17,7 +17,6 @@ import com.wangheart.rtmpfile.ffmpeg.FFmpegHandle;
 import com.wangheart.rtmpfile.flv.FlvPacker;
 import com.wangheart.rtmpfile.flv.Packer;
 import com.wangheart.rtmpfile.rtmp.RtmpHandle;
-import com.wangheart.rtmpfile.utils.IOUtils;
 import com.wangheart.rtmpfile.utils.LogUtils;
 import com.wangheart.rtmpfile.view.MySurfaceView;
 
@@ -179,7 +178,7 @@ public class CameraMediaCodecRtmpActivity extends Activity implements SurfaceHol
     @Override
     public void surfaceCreated(SurfaceHolder holder) {
         mFlvPacker.start();
-        mOutStream = IOUtils.open(DATA_DIR + File.separator + "/easy.flv", true);
+//        mOutStream = IOUtils.open(DATA_DIR + File.separator + "/easy.flv", true);
         CameraInterface.getInstance().startPreview(mHolder, mStreamIt);
         pushExecutor.execute(new Runnable() {
             @Override
@@ -201,7 +200,7 @@ public class CameraMediaCodecRtmpActivity extends Activity implements SurfaceHol
         CameraInterface.getInstance().releaseCamera();
         int ret = RtmpHandle.getInstance().close();
         LogUtils.w("关闭RTMP连接：" + ret);
-        IOUtils.close(mOutStream);
+//        IOUtils.close(mOutStream);
     }
 
     ExecutorService executor = Executors.newSingleThreadExecutor();
