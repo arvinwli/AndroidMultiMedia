@@ -15,7 +15,14 @@ import com.wangheart.rtmpfile.utils.ImageUtil;
 import com.wangheart.rtmpfile.utils.LogUtils;
 
 import java.io.IOException;
-
+/**
+ * Author : eric
+ * CreateDate : 2017/11/6  10:57
+ * Email : ericli_wang@163.com
+ * Version : 2.0
+ * Desc :  摄像头操作类
+ * Modified :
+ */
 public class CameraInterface {
     private Camera mCamera;
     private boolean isPreviewing = false;

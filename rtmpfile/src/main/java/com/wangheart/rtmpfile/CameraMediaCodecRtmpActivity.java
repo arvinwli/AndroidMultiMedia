@@ -82,12 +82,11 @@ public class CameraMediaCodecRtmpActivity extends Activity implements SurfaceHol
         mFlvPacker.setPacketListener(new Packer.OnPacketListener() {
             @Override
             public void onPacket(final byte[] data, final int packetType) {
-//                IOUtils.write(mOutStream, data, 0, data.length);
                 pushExecutor.execute(new Runnable() {
                     @Override
                     public void run() {
-                        int ret=RtmpHandle.getInstance().push(data, data.length);
-                        LogUtils.w(data.length + " " + packetType + "  ret:"+ret);
+                        int ret = RtmpHandle.getInstance().push(data, data.length);
+                        LogUtils.w("type：" + packetType + "  length:" + data.length + "  推流结果:" + ret);
                     }
                 });
             }
@@ -186,7 +185,7 @@ public class CameraMediaCodecRtmpActivity extends Activity implements SurfaceHol
             @Override
             public void run() {
                 int ret = RtmpHandle.getInstance().connect("rtmp://192.168.31.127/live");
-                LogUtils.w("connect ret " + ret);
+                LogUtils.w("打开RTMP连接: " + ret);
             }
         });
     }
@@ -200,6 +199,8 @@ public class CameraMediaCodecRtmpActivity extends Activity implements SurfaceHol
         mFlvPacker.stop();
         CameraInterface.getInstance().stopPreview();
         CameraInterface.getInstance().releaseCamera();
+        int ret = RtmpHandle.getInstance().close();
+        LogUtils.w("关闭RTMP连接：" + ret);
         IOUtils.close(mOutStream);
     }
 

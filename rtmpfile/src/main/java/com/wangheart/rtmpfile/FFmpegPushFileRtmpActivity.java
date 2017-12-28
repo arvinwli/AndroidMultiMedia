@@ -23,7 +23,7 @@ import java.io.File;
  * Modified :
  */
 
-public class PushFileRtmpActivity extends Activity {
+public class FFmpegPushFileRtmpActivity extends Activity {
     private TextView tvPushInfo;
 
     @Override

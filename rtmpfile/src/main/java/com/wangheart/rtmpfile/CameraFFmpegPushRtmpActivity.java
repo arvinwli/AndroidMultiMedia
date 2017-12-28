@@ -26,7 +26,7 @@ import java.util.concurrent.Executors;
  * Modified :
  */
 
-public class CameraActivity extends Activity implements SurfaceHolder.Callback {
+public class CameraFFmpegPushRtmpActivity extends Activity implements SurfaceHolder.Callback {
     private MySurfaceView sv;
     private final int WIDTH = 480;
     private final int HEIGHT = 320;

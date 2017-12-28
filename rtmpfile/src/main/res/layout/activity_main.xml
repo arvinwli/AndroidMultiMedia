@@ -19,24 +19,27 @@
     <Button
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:onClick="btnPushFile"
-        android:text="推送文件RTMP流" />
+        android:onClick="btnFFmpegPushFile"
+        android:text="FFmpeg推送文件RTMP流" />
 
     <Button
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:onClick="btnCamera"
+        android:onClick="btnCameraFFmpeg"
         android:text="开启摄像头进行视频编码(FFmpeg)" />
+
     <Button
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:onClick="btnMediaCodec"
         android:text="开启摄像头进行视频编码(MediaCodec)，存到flv文件" />
+
     <Button
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:onClick="librmtp"
-        android:text="librmtp" />
+        android:onClick="btmRtmpdumpFile"
+        android:text="解析FLV文件通过librmtp推流" />
+
     <Button
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"

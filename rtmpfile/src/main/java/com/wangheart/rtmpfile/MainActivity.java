@@ -34,23 +34,43 @@ public class MainActivity extends Activity {
         tvCodecInfo.setText(FFmpegHandle.getInstance().getAvcodecConfiguration());
     }
 
-    public void btnCamera(View view) {
-        Intent intent = new Intent(this, CameraActivity.class);
+    /**
+     * FFmpeg推送视频文件
+     *
+     * @param view
+     */
+    public void btnFFmpegPushFile(View view) {
+        Intent intent = new Intent(this, FFmpegPushFileRtmpActivity.class);
         startActivity(intent);
     }
 
-    public void btnPushFile(View view) {
-        Intent intent = new Intent(this, PushFileRtmpActivity.class);
+    /**
+     * FFmpeg推送摄像头采集的数据
+     *
+     * @param view
+     */
+    public void btnCameraFFmpeg(View view) {
+        Intent intent = new Intent(this, CameraFFmpegPushRtmpActivity.class);
         startActivity(intent);
     }
 
+    /**
+     * MediaCodec编码摄像头数据并保存问flv格式到文件
+     *
+     * @param view
+     */
     public void btnMediaCodec(View view) {
         Intent intent = new Intent(this, CameraMediaCodecActivity.class);
         startActivity(intent);
     }
 
-    public void librmtp(View view) {
-        new Thread(){
+    /**
+     * RTMPDump推送视频文件
+     *
+     * @param view
+     */
+    public void btmRtmpdumpFile(View view) {
+        new Thread() {
             @Override
             public void run() {
                 super.run();
@@ -62,6 +82,11 @@ public class MainActivity extends Activity {
         }.start();
     }
 
+    /**
+     * MediaCodec编码摄像头数据并使用RTMPDump进行推流
+     *
+     * @param view
+     */
     public void btnMediaCodecRtmp(View view) {
         Intent intent = new Intent(this, CameraMediaCodecRtmpActivity.class);
         startActivity(intent);

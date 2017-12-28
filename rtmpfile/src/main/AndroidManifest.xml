@@ -16,8 +16,8 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <activity android:name=".CameraActivity" />
-        <activity android:name=".PushFileRtmpActivity" />
+        <activity android:name=".CameraFFmpegPushRtmpActivity" />
+        <activity android:name=".FFmpegPushFileRtmpActivity" />
         <activity android:name=".CameraMediaCodecActivity" />
         <activity android:name=".CameraMediaCodecRtmpActivity" />
     </application>

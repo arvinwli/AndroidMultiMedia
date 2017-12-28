@@ -5,12 +5,12 @@ package com.wangheart.rtmpfile.rtmp;
  * CreateDate : 2017/12/25  18:13
  * Email : ericli_wang@163.com
  * Version : 2.0
- * Desc :
+ * Desc :  RTMPDump调用类
  * Modified :
  */
 
 public class RtmpHandle {
-    public static RtmpHandle mInstance;
+    private static RtmpHandle mInstance;
 
     private RtmpHandle() {
     }
