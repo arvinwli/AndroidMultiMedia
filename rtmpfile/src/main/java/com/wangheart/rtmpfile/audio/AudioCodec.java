@@ -5,6 +5,7 @@ import android.media.MediaCodecInfo;
 import android.media.MediaExtractor;
 import android.media.MediaFormat;
 
+import com.wangheart.rtmpfile.utils.ADTSUtils;
 import com.wangheart.rtmpfile.utils.LogUtils;
 
 import java.io.BufferedInputStream;
@@ -14,7 +15,7 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
+import java.util.concurrent.ArrayBlockingQueue;
 
 /**
  * Author : eric
@@ -41,17 +42,22 @@ public class AudioCodec {
     private BufferedOutputStream bos;
     private FileInputStream fis;
     private BufferedInputStream bis;
-    private ArrayList<byte[]> chunkPCMDataContainer;//PCM数据块容器
     private OnCompleteListener onCompleteListener;
     private OnProgressListener onProgressListener;
     private long fileTotalSize;
     private long decodeSize;
 
+    private int key_channel_count;
+    private int key_bit_rate;
+    private int key_sample_rate;
+    private int sampleRateType;
+
+    private ArrayBlockingQueue<byte[]> queue;
+
 
     public static AudioCodec newInstance() {
         return new AudioCodec();
     }
-
 
     /**
      * 设置输入输出文件位置
@@ -86,7 +92,7 @@ public class AudioCodec {
         } catch (IOException e) {
             e.printStackTrace();
         }
-        chunkPCMDataContainer = new ArrayList<>();
+        queue = new ArrayBlockingQueue<byte[]>(10);
         initMediaDecode();//解码器
         initAACMediaEncode();//AAC编码器
     }
@@ -102,9 +108,12 @@ public class AudioCodec {
                 MediaFormat format = mediaExtractor.getTrackFormat(i);
                 String mime = format.getString(MediaFormat.KEY_MIME);
                 if (mime.startsWith("audio")) {//获取音频轨道
-//                    format.setInteger(MediaFormat.KEY_MAX_INPUT_SIZE, 200 * 1024);
                     mediaExtractor.selectTrack(i);//选择此音频轨道
                     LogUtils.d("mime:" + mime);
+                    key_bit_rate = format.getInteger(MediaFormat.KEY_BIT_RATE);
+                    key_channel_count = format.getInteger(MediaFormat.KEY_CHANNEL_COUNT);
+                    key_sample_rate = format.getInteger(MediaFormat.KEY_SAMPLE_RATE);
+                    sampleRateType = ADTSUtils.getSampleRateType(key_sample_rate);
                     mediaDecode = MediaCodec.createDecoderByType(mime);//创建Decode解码器
                     mediaDecode.configure(format, null, null, 0);
                     break;
@@ -131,8 +140,10 @@ public class AudioCodec {
      */
     private void initAACMediaEncode() {
         try {
-            MediaFormat encodeFormat = MediaFormat.createAudioFormat(MediaFormat.MIMETYPE_AUDIO_AAC, 44100, 2);//参数对应-> mime type、采样率、声道数
-            encodeFormat.setInteger(MediaFormat.KEY_BIT_RATE, 96000);//比特率
+            LogUtils.d(key_bit_rate + " " + key_channel_count + " " + key_sample_rate + " " + sampleRateType);
+            MediaFormat encodeFormat = MediaFormat.createAudioFormat(MediaFormat.MIMETYPE_AUDIO_AAC,
+                    key_sample_rate, key_channel_count);//参数对应-> mime type、采样率、声道数
+            encodeFormat.setInteger(MediaFormat.KEY_BIT_RATE, key_bit_rate);//比特率
             encodeFormat.setInteger(MediaFormat.KEY_AAC_PROFILE, MediaCodecInfo.CodecProfileLevel.AACObjectLC);
             encodeFormat.setInteger(MediaFormat.KEY_MAX_INPUT_SIZE, 100 * 1024);
             mediaEncode = MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_AUDIO_AAC);
@@ -167,32 +178,35 @@ public class AudioCodec {
     }
 
     /**
-     * 将PCM数据存入{@link #chunkPCMDataContainer}
+     * 将PCM数据存入队列
      *
      * @param pcmChunk PCM数据块
      */
     private void putPCMData(byte[] pcmChunk) {
-        synchronized (AudioCodec.class) {//记得加锁
-            chunkPCMDataContainer.add(pcmChunk);
+        try {
+            LogUtils.d("put queue size:"+queue.size());
+            queue.put(pcmChunk);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+            LogUtils.e("queue put error");
         }
     }
 
     /**
-     * 在Container中{@link #chunkPCMDataContainer}取出PCM数据
+     * 在Container中队列取出PCM数据
      *
      * @return PCM数据块
      */
     private byte[] getPCMData() {
-        synchronized (AudioCodec.class) {//记得加锁
-            LogUtils.d("getPCM:" + chunkPCMDataContainer.size());
-            if (chunkPCMDataContainer.isEmpty()) {
+        try {
+            if(queue.isEmpty()){
                 return null;
             }
-
-            byte[] pcmChunk = chunkPCMDataContainer.get(0);//每次取出index 0 的数据
-            chunkPCMDataContainer.remove(pcmChunk);//取出后将此数据remove掉 既能保证PCM数据块的取出顺序 又能及时释放内存
-            return pcmChunk;
+            return queue.take();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
         }
+        return null;
     }
 
 
@@ -218,8 +232,9 @@ public class AudioCodec {
                 mediaDecode.queueInputBuffer(inputIndex, 0, sampleSize, 0, 0);//通知MediaDecode解码刚刚传入的数据
                 mediaExtractor.advance();//MediaExtractor移动到下一取样处
                 decodeSize += sampleSize;
-                if(onProgressListener!=null){
-                    onProgressListener.progress(decodeSize,fileTotalSize);
+                LogUtils.d("read:" + sampleSize);
+                if (onProgressListener != null) {
+                    onProgressListener.progress(decodeSize, fileTotalSize);
                 }
             }
         }
@@ -302,7 +317,7 @@ public class AudioCodec {
      */
     private void addADTStoPacket(byte[] packet, int packetLen) {
         int profile = 2; // AAC LC
-        int freqIdx = 4; // 44.1KHz
+        int freqIdx = sampleRateType; // 44.1KHz
         int chanCfg = 2; // CPE
 
 
@@ -396,13 +411,13 @@ public class AudioCodec {
         @Override
         public void run() {
             long t = System.currentTimeMillis();
-            while (!codeOver || !chunkPCMDataContainer.isEmpty()) {
+            while (!codeOver || !queue.isEmpty()) {
                 dstAudioFormatFromPCM();
             }
             if (onCompleteListener != null) {
                 onCompleteListener.completed();
             }
-            LogUtils.d("size:" + fileTotalSize + " decodeSize:" + decodeSize + "time:" + (System.currentTimeMillis() - t));
+            LogUtils.w("size:" + fileTotalSize + " decodeSize:" + decodeSize + "time:" + (System.currentTimeMillis() - t));
         }
     }
 
@@ -418,7 +433,7 @@ public class AudioCodec {
      * 转码进度监听器
      */
     public interface OnProgressListener {
-        void progress(long current,long total);
+        void progress(long current, long total);
     }
 
     /**
