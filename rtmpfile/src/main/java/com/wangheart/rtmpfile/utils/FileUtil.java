@@ -15,6 +15,15 @@ public class FileUtil {
 	private static final File parentPath = Environment.getExternalStorageDirectory();
 	private static   String storagePath = "";
 	private static final String DST_FOLDER_NAME = "PlayCamera";
+	private static final String MAIN_DIR="FFmpegSample";
+
+	public static File getMainDir(){
+		File file=new File(parentPath,MAIN_DIR);
+		if(!file.exists()){
+			file.mkdirs();
+		}
+		return file;
+	}
 
 	/**初始化保存路径
 	 * @return

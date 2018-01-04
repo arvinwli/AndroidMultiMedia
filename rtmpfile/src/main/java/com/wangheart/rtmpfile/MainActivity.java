@@ -91,4 +91,8 @@ public class MainActivity extends Activity {
         Intent intent = new Intent(this, CameraMediaCodecRtmpActivity.class);
         startActivity(intent);
     }
+
+    public void btnAudioFormatChange(View view) {
+        startActivity(new Intent(this, AudioCodecActivity.class));
+    }
 }
