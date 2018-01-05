@@ -21,6 +21,8 @@
         <activity android:name=".CameraMediaCodecActivity" />
         <activity android:name=".CameraMediaCodecRtmpActivity" />
         <activity android:name=".AudioCodecActivity" />
+        <activity android:name=".PermissionsActivity" />
+        <activity android:name=".AudioRecordActivity" />
     </application>
 
     <uses-permission android:name="android.permission.INTERNET" />

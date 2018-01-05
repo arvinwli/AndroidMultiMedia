@@ -10,11 +10,15 @@ import android.widget.TextView;
 import com.wangheart.rtmpfile.ffmpeg.FFmpegHandle;
 import com.wangheart.rtmpfile.rtmp.RtmpHandle;
 import com.wangheart.rtmpfile.utils.LogUtils;
+import com.wangheart.rtmpfile.utils.PermissionsChecker;
 
 import java.io.File;
 
 public class MainActivity extends Activity {
     private TextView tvCodecInfo;
+    private PermissionsChecker mPermissionsChecker; // 权限检测器
+    private static final int REQUEST_CODE = 0; // 请求码
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -24,6 +28,15 @@ public class MainActivity extends Activity {
         initData();
     }
 
+    @Override
+    protected void onResume() {
+        super.onResume();
+        // 缺少权限时, 进入权限配置页面
+        if (mPermissionsChecker.lacksPermissions(PermissionsChecker.PERMISSIONS)) {
+            PermissionsActivity.startActivityForResult(this, REQUEST_CODE, PermissionsChecker.PERMISSIONS);
+        }
+    }
+
     private void initView() {
         tvCodecInfo = findViewById(R.id.tv_codec_info);
     }
@@ -31,6 +44,7 @@ public class MainActivity extends Activity {
 
     private void initData() {
         FFmpegHandle.init(this);
+        mPermissionsChecker = new PermissionsChecker(this);
         tvCodecInfo.setText(FFmpegHandle.getInstance().getAvcodecConfiguration());
     }
 
@@ -94,5 +108,9 @@ public class MainActivity extends Activity {
 
     public void btnAudioFormatChange(View view) {
         startActivity(new Intent(this, AudioCodecActivity.class));
+    }
+
+    public void btnAudioRecord(View view) {
+        startActivity(new Intent(this, AudioRecordActivity.class));
     }
 }

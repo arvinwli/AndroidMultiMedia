@@ -43,4 +43,5 @@ dependencies {
     androidTestImplementation 'com.android.support.test:runner:0.5'
     androidTestImplementation 'com.android.support.test.espresso:espresso-core:2.2.2'
     compile 'org.jetbrains:annotations-java5:15.0'
+    compile "com.android.support:appcompat-v7:${android_support_version}"
 }

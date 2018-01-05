@@ -50,4 +50,9 @@
         android:layout_height="wrap_content"
         android:onClick="btnAudioFormatChange"
         android:text="音频格式转换(MediaCodec)" />
+    <Button
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:onClick="btnAudioRecord"
+        android:text="录音AAC编码"/>
 </LinearLayout>
