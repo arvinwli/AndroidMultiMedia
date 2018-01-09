@@ -14,10 +14,12 @@ import android.util.Log;
 public class LogUtils {
     public final static String TAG = "eric";
 
+    public static void v(String content) {
+        Log.v(TAG, content);
+    }
     public static void d(String content) {
         Log.d(TAG, content);
     }
-
     public static void e(String content) {
         Log.e(TAG, content);
     }
