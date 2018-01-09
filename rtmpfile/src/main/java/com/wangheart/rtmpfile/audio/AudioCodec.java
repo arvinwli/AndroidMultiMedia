@@ -6,12 +6,11 @@ import android.media.MediaExtractor;
 import android.media.MediaFormat;
 
 import com.wangheart.rtmpfile.utils.ADTSUtils;
+import com.wangheart.rtmpfile.utils.IOUtils;
 import com.wangheart.rtmpfile.utils.LogUtils;
 
-import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -38,10 +37,7 @@ public class AudioCodec {
     private ByteBuffer[] encodeOutputBuffers;
     private MediaCodec.BufferInfo decodeBufferInfo;
     private MediaCodec.BufferInfo encodeBufferInfo;
-    private FileOutputStream fos;
     private BufferedOutputStream bos;
-    private FileInputStream fis;
-    private BufferedInputStream bis;
     private OnCompleteListener onCompleteListener;
     private OnProgressListener onProgressListener;
     private long fileTotalSize;
@@ -85,8 +81,7 @@ public class AudioCodec {
         }
 
         try {
-            fos = new FileOutputStream(new File(dstPath));
-            bos = new BufferedOutputStream(fos, 200 * 1024);
+            bos = new BufferedOutputStream(new FileOutputStream(new File(dstPath)), 200 * 1024);
             File file = new File(srcPath);
             fileTotalSize = file.length();
         } catch (IOException e) {
@@ -184,7 +179,7 @@ public class AudioCodec {
      */
     private void putPCMData(byte[] pcmChunk) {
         try {
-            LogUtils.d("put queue size:"+queue.size());
+            LogUtils.d("put queue size:" + queue.size());
             queue.put(pcmChunk);
         } catch (InterruptedException e) {
             e.printStackTrace();
@@ -199,7 +194,7 @@ public class AudioCodec {
      */
     private byte[] getPCMData() {
         try {
-            if(queue.isEmpty()){
+            if (queue.isEmpty()) {
                 return null;
             }
             return queue.take();
@@ -216,29 +211,26 @@ public class AudioCodec {
      * @return 是否解码完所有数据
      */
     private void srcAudioFormatToPCM() {
-        for (int i = 0; i < decodeInputBuffers.length - 1; i++) {
-            int inputIndex = mediaDecode.dequeueInputBuffer(-1);//获取可用的inputBuffer -1代表一直等待，0表示不等待 建议-1,避免丢帧
-            if (inputIndex < 0) {
-                codeOver = true;
-                return;
-            }
-
-            ByteBuffer inputBuffer = decodeInputBuffers[inputIndex];//拿到inputBuffer
-            inputBuffer.clear();//清空之前传入inputBuffer内的数据
-            int sampleSize = mediaExtractor.readSampleData(inputBuffer, 0);//MediaExtractor读取数据到inputBuffer中
-            if (sampleSize < 0) {//小于0 代表所有数据已读取完成
-                codeOver = true;
-            } else {
-                mediaDecode.queueInputBuffer(inputIndex, 0, sampleSize, 0, 0);//通知MediaDecode解码刚刚传入的数据
-                mediaExtractor.advance();//MediaExtractor移动到下一取样处
-                decodeSize += sampleSize;
-                LogUtils.d("read:" + sampleSize);
-                if (onProgressListener != null) {
-                    onProgressListener.progress(decodeSize, fileTotalSize);
-                }
-            }
+        int inputIndex = mediaDecode.dequeueInputBuffer(-1);//获取可用的inputBuffer -1代表一直等待，0表示不等待 建议-1,避免丢帧
+        if (inputIndex < 0) {
+            codeOver = true;
+            return;
         }
 
+        ByteBuffer inputBuffer = decodeInputBuffers[inputIndex];//拿到inputBuffer
+        inputBuffer.clear();//清空之前传入inputBuffer内的数据
+        int sampleSize = mediaExtractor.readSampleData(inputBuffer, 0);//MediaExtractor读取数据到inputBuffer中
+        if (sampleSize < 0) {//小于0 代表所有数据已读取完成
+            codeOver = true;
+        } else {
+            mediaDecode.queueInputBuffer(inputIndex, 0, sampleSize, 0, 0);//通知MediaDecode解码刚刚传入的数据
+            mediaExtractor.advance();//MediaExtractor移动到下一取样处
+            decodeSize += sampleSize;
+            LogUtils.d("read:" + sampleSize);
+            if (onProgressListener != null) {
+                onProgressListener.progress(decodeSize, fileTotalSize);
+            }
+        }
         //获取解码得到的byte[]数据 参数BufferInfo上面已介绍 10000同样为等待时间 同上-1代表一直等待，0代表不等待。此处单位为微秒
         //此处建议不要填-1 有些时候并没有数据输出，那么他就会一直卡在这 等待
         int outputIndex = mediaDecode.dequeueOutputBuffer(decodeBufferInfo, 10000);
@@ -270,20 +262,18 @@ public class AudioCodec {
         int outBitSize;
         int outPacketSize;
         byte[] chunkPCM;
-
-        for (int i = 0; i < encodeInputBuffers.length - 1; i++) {
-            chunkPCM = getPCMData();//获取解码器所在线程输出的数据 代码后边会贴上
-            if (chunkPCM == null) {
-                break;
-            }
-            inputIndex = mediaEncode.dequeueInputBuffer(-1);//同解码器
+        chunkPCM = getPCMData();//获取解码器所在线程输出的数据 代码后边会贴上
+        if (chunkPCM == null) {
+            return;
+        }
+        inputIndex = mediaEncode.dequeueInputBuffer(-1);//同解码器
+        if (inputIndex >= 0) {
             inputBuffer = encodeInputBuffers[inputIndex];//同解码器
             inputBuffer.clear();//同解码器
             inputBuffer.limit(chunkPCM.length);
             inputBuffer.put(chunkPCM);//PCM数据填充给inputBuffer
             mediaEncode.queueInputBuffer(inputIndex, 0, chunkPCM.length, 0, 0);//通知编码器 编码
         }
-
         outputIndex = mediaEncode.dequeueOutputBuffer(encodeBufferInfo, 10000);//同解码器
         while (outputIndex >= 0) {//同解码器
 
@@ -293,7 +283,7 @@ public class AudioCodec {
             outputBuffer.position(encodeBufferInfo.offset);
             outputBuffer.limit(encodeBufferInfo.offset + outBitSize);
             chunkAudio = new byte[outPacketSize];
-            addADTStoPacket(chunkAudio, outPacketSize);//添加ADTS 代码后面会贴上
+            ADTSUtils.addADTStoPacket(sampleRateType, chunkAudio, outPacketSize);//添加ADTS
             outputBuffer.get(chunkAudio, 7, outBitSize);//将编码得到的AAC数据 取出到byte[]中 偏移量offset=7 你懂得
             outputBuffer.position(encodeBufferInfo.offset);
             try {
@@ -302,67 +292,16 @@ public class AudioCodec {
             } catch (IOException e) {
                 e.printStackTrace();
             }
-
             mediaEncode.releaseOutputBuffer(outputIndex, false);
             outputIndex = mediaEncode.dequeueOutputBuffer(encodeBufferInfo, 10000);
-
         }
-    }
-
-    /**
-     * 添加ADTS头
-     *
-     * @param packet
-     * @param packetLen
-     */
-    private void addADTStoPacket(byte[] packet, int packetLen) {
-        int profile = 2; // AAC LC
-        int freqIdx = sampleRateType; // 44.1KHz
-        int chanCfg = 2; // CPE
-
-
-// fill in ADTS data
-        packet[0] = (byte) 0xFF;
-        packet[1] = (byte) 0xF9;
-        packet[2] = (byte) (((profile - 1) << 6) + (freqIdx << 2) + (chanCfg >> 2));
-        packet[3] = (byte) (((chanCfg & 3) << 6) + (packetLen >> 11));
-        packet[4] = (byte) ((packetLen & 0x7FF) >> 3);
-        packet[5] = (byte) (((packetLen & 7) << 5) + 0x1F);
-        packet[6] = (byte) 0xFC;
     }
 
     /**
      * 释放资源
      */
     public void release() {
-        try {
-            if (bos != null) {
-                bos.flush();
-            }
-        } catch (IOException e) {
-            e.printStackTrace();
-        } finally {
-            if (bos != null) {
-                try {
-                    bos.close();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                } finally {
-                    bos = null;
-                }
-            }
-        }
-
-        try {
-            if (fos != null) {
-                fos.close();
-            }
-        } catch (IOException e) {
-            e.printStackTrace();
-        } finally {
-            fos = null;
-        }
-
+        IOUtils.close(bos);
         if (mediaEncode != null) {
             mediaEncode.stop();
             mediaEncode.release();

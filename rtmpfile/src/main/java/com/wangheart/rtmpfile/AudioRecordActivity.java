@@ -186,6 +186,7 @@ public class AudioRecordActivity extends Activity {
             LogUtils.w("编码线程开始");
             while (isRecord || !queue.isEmpty())
                 encodePCM();
+            release();
         }
     }
 
@@ -232,7 +233,6 @@ public class AudioRecordActivity extends Activity {
             try {
                 LogUtils.d("接受编码后数据 " + chunkAudio.length);
                 mAudioBos.write(chunkAudio, 0, chunkAudio.length);//BufferOutputStream 将文件保存到内存卡中 *.aac
-                mAudioBos.flush();
             } catch (IOException e) {
                 e.printStackTrace();
             }

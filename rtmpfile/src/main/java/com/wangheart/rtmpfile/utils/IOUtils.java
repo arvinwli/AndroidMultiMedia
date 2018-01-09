@@ -40,8 +40,17 @@ public class IOUtils {
             try {
                 out.flush();
                 out.close();
+                out = null;
             } catch (IOException e) {
                 e.printStackTrace();
+            } finally {
+                if (out != null) {
+                    try {
+                        out.close();
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                }
             }
         }
     }
