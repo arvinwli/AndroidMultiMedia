@@ -87,7 +87,7 @@ public class AudioCodec {
         } catch (IOException e) {
             e.printStackTrace();
         }
-        queue = new ArrayBlockingQueue<byte[]>(10);
+        queue = new ArrayBlockingQueue<byte[]>(20);
         initMediaDecode();//解码器
         initAACMediaEncode();//AAC编码器
     }
@@ -105,9 +105,14 @@ public class AudioCodec {
                 if (mime.startsWith("audio")) {//获取音频轨道
                     mediaExtractor.selectTrack(i);//选择此音频轨道
                     LogUtils.d("mime:" + mime);
-                    key_bit_rate = format.getInteger(MediaFormat.KEY_BIT_RATE);
                     key_channel_count = format.getInteger(MediaFormat.KEY_CHANNEL_COUNT);
                     key_sample_rate = format.getInteger(MediaFormat.KEY_SAMPLE_RATE);
+                    if (format.containsKey(MediaFormat.KEY_BIT_RATE)) {
+                        key_bit_rate = format.getInteger(MediaFormat.KEY_BIT_RATE);
+                    } else {
+                        LogUtils.w("MediaFormat not contain KEY_BIT_RATE");
+                        key_bit_rate = 128000;
+                    }
                     sampleRateType = ADTSUtils.getSampleRateType(key_sample_rate);
                     mediaDecode = MediaCodec.createDecoderByType(mime);//创建Decode解码器
                     mediaDecode.configure(format, null, null, 0);
@@ -135,12 +140,12 @@ public class AudioCodec {
      */
     private void initAACMediaEncode() {
         try {
-            LogUtils.d(key_bit_rate + " " + key_channel_count + " " + key_sample_rate + " " + sampleRateType);
             MediaFormat encodeFormat = MediaFormat.createAudioFormat(MediaFormat.MIMETYPE_AUDIO_AAC,
                     key_sample_rate, key_channel_count);//参数对应-> mime type、采样率、声道数
             encodeFormat.setInteger(MediaFormat.KEY_BIT_RATE, key_bit_rate);//比特率
             encodeFormat.setInteger(MediaFormat.KEY_AAC_PROFILE, MediaCodecInfo.CodecProfileLevel.AACObjectLC);
             encodeFormat.setInteger(MediaFormat.KEY_MAX_INPUT_SIZE, 100 * 1024);
+            LogUtils.w("编码器参数:"+key_bit_rate + " " + key_channel_count + " " + key_sample_rate + " " + sampleRateType);
             mediaEncode = MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_AUDIO_AAC);
             mediaEncode.configure(encodeFormat, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
         } catch (IOException e) {
