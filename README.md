@@ -49,6 +49,7 @@
 - [Android平台下使用FFmpeg进行RTMP推流（摄像头推流）](https://www.jianshu.com/p/462e489b7ce0)—[源码v1.2.1](https://github.com/EricLi22/FFmpegSample/releases/tag/1.2.1)
 - [Android RTMP推流之MediaCodec硬编码一（H.264进行flv封装）](https://www.jianshu.com/p/e607e63fb78f)—[源码v1.3](https://github.com/EricLi22/FFmpegSample/releases/tag/v1.3)
 - [Android平台下RTMPDump的使用](https://www.jianshu.com/p/3ee9e5e4d630)—[源码v1.4](https://github.com/EricLi22/FFmpegSample/releases/tag/v1.4)
-
+- [Android RTMP推流之MediaCodec硬编码二（RTMPDump推流）](https://www.jianshu.com/p/53ddf0831d2c)-[源码v1.5](https://github.com/EricLi22/FFmpegSample/releases/tag/v1.5)
+- [MediaCodec进行AAC编解码（文件格式转换）](https://www.jianshu.com/p/875049a5b40f)-[源码v1.6](https://github.com/EricLi22/FFmpegSample/releases/tag/v1.6)
 
 
