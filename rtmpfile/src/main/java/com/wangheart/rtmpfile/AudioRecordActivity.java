@@ -49,6 +49,7 @@ public class AudioRecordActivity extends Activity {
     private BufferedOutputStream mAudioBos;
     private ArrayBlockingQueue<byte[]> queue;
     private boolean isRecord = false;
+    private int MAX_BUFFER_SIZE = 8192;
 
 
     @Override
@@ -101,6 +102,9 @@ public class AudioRecordActivity extends Activity {
         };
     }
 
+    /**
+     * 初始化AudioRecord
+     */
     private void initAudioDevice() {
         int[] sampleRates = {44100, 22050, 16000, 11025};
         for (int sampleRate : sampleRates) {
@@ -108,30 +112,38 @@ public class AudioRecordActivity extends Activity {
             int audioFormat = AudioFormat.ENCODING_PCM_16BIT;
             // stereo 立体声，
             int channelConfig = AudioFormat.CHANNEL_CONFIGURATION_STEREO;
-            int buffsize = 2 * AudioRecord.getMinBufferSize(sampleRate, channelConfig, audioFormat);
+            int buffsize =2* AudioRecord.getMinBufferSize(sampleRate, channelConfig, audioFormat);
             mAudioRecord = new AudioRecord(MediaRecorder.AudioSource.MIC, sampleRate, channelConfig,
                     audioFormat, buffsize);
-            if (mAudioRecord.getState() != AudioRecord.STATE_INITIALIZED) {
-                continue;
+            if (mAudioRecord.getState() == AudioRecord.STATE_INITIALIZED&&buffsize<=MAX_BUFFER_SIZE) {
+                mAudioSampleRate = sampleRate;
+                mAudioChanelCount = channelConfig == AudioFormat.CHANNEL_CONFIGURATION_STEREO ? 2 : 1;
+                mAudioBuffer = new byte[buffsize];
+                mSampleRateType = ADTSUtils.getSampleRateType(sampleRate);
+                LogUtils.w("编码器参数:" + mAudioSampleRate + " " + mSampleRateType + " " + mAudioChanelCount + " " + buffsize);
+                break;
             }
-            mAudioSampleRate = sampleRate;
-            mAudioChanelCount = channelConfig == AudioFormat.CHANNEL_CONFIGURATION_STEREO ? 2 : 1;
-            mAudioBuffer = new byte[Math.min(4096, buffsize)];
-            mSampleRateType = ADTSUtils.getSampleRateType(sampleRate);
-            LogUtils.w("编码器参数:" + mAudioSampleRate + " " + mSampleRateType + " " + mAudioChanelCount);
         }
     }
 
+    /**
+     * 初始化编码器
+     * @return
+     * @throws IOException
+     */
     private MediaCodec initAudioEncoder() throws IOException {
         MediaCodec encoder = MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_AUDIO_AAC);
         MediaFormat format = MediaFormat.createAudioFormat(MediaFormat.MIMETYPE_AUDIO_AAC,
                 mAudioSampleRate, mAudioChanelCount);
-        format.setInteger(MediaFormat.KEY_MAX_INPUT_SIZE, 0);
+        format.setInteger(MediaFormat.KEY_MAX_INPUT_SIZE, MAX_BUFFER_SIZE);
         format.setInteger(MediaFormat.KEY_BIT_RATE, 1000 * 30);
         encoder.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
         return encoder;
     }
 
+    /**
+     * 采集音频数据
+     */
     private void fetchPcmFromDevice() {
         LogUtils.w("录音线程开始");
         while (isRecord && mAudioRecord != null && !Thread.interrupted()) {
@@ -207,7 +219,6 @@ public class AudioRecordActivity extends Activity {
         if (chunkPCM == null) {
             return;
         }
-
         inputIndex = mAudioEncoder.dequeueInputBuffer(-1);//同解码器
         if (inputIndex >= 0) {
             inputBuffer = encodeInputBuffers[inputIndex];//同解码器
