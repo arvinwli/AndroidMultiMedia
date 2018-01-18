@@ -51,5 +51,6 @@
 - [Android平台下RTMPDump的使用](https://www.jianshu.com/p/3ee9e5e4d630)—[源码v1.4](https://github.com/EricLi22/FFmpegSample/releases/tag/v1.4)
 - [Android RTMP推流之MediaCodec硬编码二（RTMPDump推流）](https://www.jianshu.com/p/53ddf0831d2c)-[源码v1.5](https://github.com/EricLi22/FFmpegSample/releases/tag/v1.5)
 - [MediaCodec进行AAC编解码（文件格式转换）](https://www.jianshu.com/p/875049a5b40f)-[源码v1.6](https://github.com/EricLi22/FFmpegSample/releases/tag/v1.6)
+- [MediaCodec进行AAC编解码（AudioRecord采集编码）](https://www.jianshu.com/p/e32ec8a8df41)-[源码v1.7](https://github.com/EricLi22/FFmpegSample/releases/tag/v1.7)
 
 
