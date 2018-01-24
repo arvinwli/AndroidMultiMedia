@@ -26,6 +26,7 @@ add_library( # Sets the name of the library.
 #引用的头文件
 include_directories(
                     src/main/cpp/include
+                    src/main/cpp/common.h
                     )
 
 #添加库 动态库为SHARED  静态库就是STATIC

@@ -17,7 +17,7 @@ public class FFmpegAudioHandle {
     }
 
     public static synchronized FFmpegAudioHandle getInstance() {
-        if (mInstance != null) {
+        if (mInstance == null) {
             mInstance = new FFmpegAudioHandle();
         }
         return mInstance;
@@ -36,6 +36,12 @@ public class FFmpegAudioHandle {
         System.loadLibrary("postproc-54");
         System.loadLibrary("ffmpeg-handle");
     }
+
+    public native int initAudio(String url);
+
+    public native int encodeAudio(byte[] buffer);
+
+    public native int close();
 
 
 }

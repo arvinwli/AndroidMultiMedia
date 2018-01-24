@@ -23,6 +23,7 @@
         <activity android:name=".AudioCodecActivity" />
         <activity android:name=".PermissionsActivity" />
         <activity android:name=".AudioRecordActivity" />
+        <activity android:name=".AudioRecordFFmpegActivity" />
     </application>
 
     <uses-permission android:name="android.permission.INTERNET" />

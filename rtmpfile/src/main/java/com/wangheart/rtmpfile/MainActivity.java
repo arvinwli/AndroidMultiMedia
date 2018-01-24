@@ -113,4 +113,8 @@ public class MainActivity extends Activity {
     public void btnAudioRecord(View view) {
         startActivity(new Intent(this, AudioRecordActivity.class));
     }
+
+    public void btnAudioRecordFFmpeg(View view) {
+        startActivity(new Intent(this, AudioRecordFFmpegActivity.class));
+    }
 }
