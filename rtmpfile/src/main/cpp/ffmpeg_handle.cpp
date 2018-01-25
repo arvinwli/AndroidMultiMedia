@@ -324,7 +324,9 @@ int yuv_height;
 int y_length;
 int uv_length;
 int width = 480;
+//int width = 640;
 int height = 320;
+//int height = 480;
 int fps = 15;
 
 /**
@@ -333,10 +335,11 @@ int fps = 15;
 extern "C"
 JNIEXPORT jint JNICALL
 Java_com_wangheart_rtmpfile_ffmpeg_FFmpegHandle_initVideo(JNIEnv *env, jobject instance,
-                                                          jstring url_) {
+                                                          jstring url_,jint jwidth,jint jheight) {
     const char *out_path = env->GetStringUTFChars(url_, 0);
     logd(out_path);
-
+    width=jwidth;
+    height=jheight;
     //计算yuv数据的长度
     yuv_width = width;
     yuv_height = height;

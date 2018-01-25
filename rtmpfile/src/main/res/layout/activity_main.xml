@@ -1,63 +1,71 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:padding="15dp"
     tools:context="com.wangheart.rtmpfile.MainActivity">
 
-    <TextView
-        android:id="@+id/tv_codec_info"
-        android:layout_width="wrap_content"
+    <LinearLayout xmlns:tools="http://schemas.android.com/tools"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Hello World!"
-        android:textColor="#000000"
-        android:textSize="20sp" />
+        android:orientation="vertical"
+        android:padding="15dp">
 
-    <Button
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:onClick="btnFFmpegPushFile"
-        android:text="FFmpeg推送文件RTMP流" />
+        <Button
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:onClick="btnFFmpegPushFile"
+            android:text="FFmpeg推送文件RTMP流" />
 
-    <Button
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:onClick="btnCameraFFmpeg"
-        android:text="开启摄像头进行视频编码(FFmpeg)" />
+        <Button
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:onClick="btnCameraFFmpeg"
+            android:text="开启摄像头进行视频编码(FFmpeg)" />
 
-    <Button
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:onClick="btnMediaCodec"
-        android:text="开启摄像头进行视频编码(MediaCodec)，存到flv文件" />
+        <Button
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:onClick="btnMediaCodec"
+            android:text="开启摄像头进行视频编码(MediaCodec)，存到flv文件" />
 
-    <Button
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:onClick="btmRtmpdumpFile"
-        android:text="解析FLV文件通过librmtp推流" />
+        <Button
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:onClick="btmRtmpdumpFile"
+            android:text="解析FLV文件通过librmtp推流" />
 
-    <Button
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:onClick="btnMediaCodecRtmp"
-        android:text="开启摄像头进行视频编码(MediaCodec)，RTMP推流" />
-    <Button
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:onClick="btnAudioFormatChange"
-        android:text="音频格式转换(MediaCodec)" />
-    <Button
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:onClick="btnAudioRecord"
-        android:text="录音AAC编码"/>
-    <Button
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:onClick="btnAudioRecordFFmpeg"
-        android:text="录音AAC编码（FFmpeg）"/>
-</LinearLayout>
+        <Button
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:onClick="btnMediaCodecRtmp"
+            android:text="开启摄像头进行视频编码(MediaCodec)，RTMP推流" />
+
+        <Button
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:onClick="btnAudioFormatChange"
+            android:text="音频格式转换(MediaCodec)" />
+
+        <Button
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:onClick="btnAudioRecord"
+            android:text="录音AAC编码" />
+
+        <Button
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:onClick="btnAudioRecordFFmpeg"
+            android:text="录音AAC编码（FFmpeg）" />
+
+        <TextView
+            android:id="@+id/tv_codec_info"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Hello World!"
+            android:textColor="#000000"
+            android:textSize="20sp" />
+    </LinearLayout>
+</ScrollView>

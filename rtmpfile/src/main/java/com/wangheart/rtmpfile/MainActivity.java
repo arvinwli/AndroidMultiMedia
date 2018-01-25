@@ -4,6 +4,7 @@ import android.app.Activity;
 import android.content.Intent;
 import android.os.Bundle;
 import android.os.Environment;
+import android.text.TextUtils;
 import android.view.View;
 import android.widget.TextView;
 
@@ -11,6 +12,7 @@ import com.wangheart.rtmpfile.ffmpeg.FFmpegHandle;
 import com.wangheart.rtmpfile.rtmp.RtmpHandle;
 import com.wangheart.rtmpfile.utils.LogUtils;
 import com.wangheart.rtmpfile.utils.PermissionsChecker;
+import com.wangheart.rtmpfile.utils.PhoneUtils;
 
 import java.io.File;
 
@@ -38,6 +40,7 @@ public class MainActivity extends Activity {
     }
 
     private void initView() {
+        PhoneUtils.init(this);
         tvCodecInfo = findViewById(R.id.tv_codec_info);
     }
 
@@ -45,7 +48,10 @@ public class MainActivity extends Activity {
     private void initData() {
         FFmpegHandle.init(this);
         mPermissionsChecker = new PermissionsChecker(this);
-        tvCodecInfo.setText(FFmpegHandle.getInstance().getAvcodecConfiguration());
+        String content = FFmpegHandle.getInstance().getAvcodecConfiguration();
+        if (!TextUtils.isEmpty(content)) {
+            tvCodecInfo.setText(content.replace("--", "\n--"));
+        }
     }
 
     /**

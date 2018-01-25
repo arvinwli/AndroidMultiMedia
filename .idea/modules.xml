@@ -2,8 +2,10 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/FFmpegDemo.iml" filepath="$PROJECT_DIR$/FFmpegDemo.iml" />
+      <module fileurl="file://D:\code\android\FFmpegSample\FFmpegDemo.iml" filepath="D:\code\android\FFmpegSample\FFmpegDemo.iml" />
+      <module fileurl="file://$PROJECT_DIR$/FFmpegSample.iml" filepath="$PROJECT_DIR$/FFmpegSample.iml" />
       <module fileurl="file://$PROJECT_DIR$/rtmpfile/rtmpfile.iml" filepath="$PROJECT_DIR$/rtmpfile/rtmpfile.iml" />
+      <module fileurl="file://D:\code\android\FFmpegSample\rtmpfile\rtmpfile.iml" filepath="D:\code\android\FFmpegSample\rtmpfile\rtmpfile.iml" />
     </modules>
   </component>
 </project>

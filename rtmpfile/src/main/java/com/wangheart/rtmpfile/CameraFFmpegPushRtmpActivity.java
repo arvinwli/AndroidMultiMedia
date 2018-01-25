@@ -4,11 +4,18 @@ import android.app.Activity;
 import android.graphics.ImageFormat;
 import android.hardware.Camera;
 import android.os.Bundle;
+import android.util.DisplayMetrics;
+import android.util.Size;
+import android.view.Surface;
 import android.view.SurfaceHolder;
 import android.view.View;
+import android.widget.FrameLayout;
+import android.widget.RelativeLayout;
 
 import com.wangheart.rtmpfile.ffmpeg.FFmpegHandle;
+import com.wangheart.rtmpfile.utils.FileUtil;
 import com.wangheart.rtmpfile.utils.LogUtils;
+import com.wangheart.rtmpfile.utils.PhoneUtils;
 import com.wangheart.rtmpfile.view.MySurfaceView;
 
 import org.jetbrains.annotations.Nullable;
@@ -28,10 +35,11 @@ import java.util.concurrent.Executors;
 
 public class CameraFFmpegPushRtmpActivity extends Activity implements SurfaceHolder.Callback {
     private MySurfaceView sv;
-    private final int WIDTH = 480;
-    private final int HEIGHT = 320;
+    private final int WIDTH = 640;
+    private int HEIGHT = 480;
     private SurfaceHolder mHolder;
-    private String url = "rtmp://192.168.31.127/live/test";
+    //    private String url = "rtmp://192.168.31.127/live/test";
+    private String url = FileUtil.getMainDir() + "/ffmpeg.flv";
     //采集到每帧数据时间
     long previewTime = 0;
     //每帧开始编码时间
@@ -57,6 +65,14 @@ public class CameraFFmpegPushRtmpActivity extends Activity implements SurfaceHol
         CameraInterface.getInstance().openCamera(1);
         Camera.Parameters params = CameraInterface.getInstance().getParams();
         params.setPictureFormat(ImageFormat.NV21);
+        List<Camera.Size> list = params.getSupportedPictureSizes();
+        for (Camera.Size size : list) {
+            LogUtils.d(size.width + " " + size.height);
+            if (size.width == WIDTH) {
+                HEIGHT = size.height;
+                break;
+            }
+        }
         params.setPictureSize(WIDTH, HEIGHT);
         params.setPreviewSize(WIDTH, HEIGHT);
         params.setPreviewFpsRange(30000, 30000);
@@ -64,13 +80,27 @@ public class CameraFFmpegPushRtmpActivity extends Activity implements SurfaceHol
         if (focusModes.contains("continuous-video")) {
             params.setFocusMode(Camera.Parameters.FOCUS_MODE_CONTINUOUS_VIDEO);
         }
+        CameraInterface.getInstance().adjustOrientation(this, new CameraInterface.OnOrientationChangeListener() {
+            @Override
+            public void onChange(int degree) {
+                FrameLayout.LayoutParams lp =
+                        (FrameLayout.LayoutParams) sv.getLayoutParams();
+                LogUtils.d(PhoneUtils.getWidth() + " " + PhoneUtils.getHeight());
+                if (degree == 90) {
+                    lp.height = PhoneUtils.getWidth() * WIDTH / HEIGHT;
+                } else {
+                    lp.height = PhoneUtils.getWidth() * HEIGHT / WIDTH;
+                }
+                sv.setLayoutParams(lp);
+            }
+        });
+
         CameraInterface.getInstance().resetParams(params);
         FFmpegHandle.init(this);
         mHolder = sv.getHolder();
         mHolder.addCallback(this);
-        FFmpegHandle.getInstance().initVideo(url);
+        FFmpegHandle.getInstance().initVideo(url, WIDTH, HEIGHT);
     }
-
     @Override
     protected void onDestroy() {
         super.onDestroy();

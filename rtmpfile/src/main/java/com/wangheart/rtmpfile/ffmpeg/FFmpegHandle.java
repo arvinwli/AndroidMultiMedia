@@ -44,7 +44,7 @@ public class FFmpegHandle {
 
     public native int pushRtmpFile(String path);
 
-    public native int initVideo(String url);
+    public native int initVideo(String url,int jwidth,int jheight);
 
     public native int onFrameCallback(byte[] buffer);
 

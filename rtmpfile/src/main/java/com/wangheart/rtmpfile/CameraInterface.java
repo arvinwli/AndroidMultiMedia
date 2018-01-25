@@ -1,5 +1,6 @@
 package com.wangheart.rtmpfile;
 
+import android.app.Activity;
 import android.content.Context;
 import android.content.res.Configuration;
 import android.graphics.Bitmap;
@@ -13,8 +14,10 @@ import android.view.SurfaceHolder;
 import com.wangheart.rtmpfile.utils.FileUtil;
 import com.wangheart.rtmpfile.utils.ImageUtil;
 import com.wangheart.rtmpfile.utils.LogUtils;
+import com.wangheart.rtmpfile.utils.PhoneUtils;
 
 import java.io.IOException;
+
 /**
  * Author : eric
  * CreateDate : 2017/11/6  10:57
@@ -27,7 +30,6 @@ public class CameraInterface {
     private Camera mCamera;
     private boolean isPreviewing = false;
     private static CameraInterface mCameraInterface;
-
 
 
     private CameraInterface() {
@@ -43,7 +45,6 @@ public class CameraInterface {
 
     /**
      * 打开Camera
-     *
      */
     public boolean openCamera(int cameraId) {
         LogUtils.d("Camera open...");
@@ -69,6 +70,39 @@ public class CameraInterface {
 
     public void resetParams(Camera.Parameters param) {
         mCamera.setParameters(param);
+    }
+
+    public void setOrientation(int degree) {
+        if (mCamera != null)
+            mCamera.setDisplayOrientation(degree);
+    }
+
+    public void adjustOrientation(Activity activity, OnOrientationChangeListener listener) {
+        int deviceDegree = PhoneUtils.getDisplayRotation(activity);
+        LogUtils.d(" " + deviceDegree);
+        int degree = 0;
+        switch (deviceDegree) {
+            case 0:
+                degree = 90;
+                break;
+            case 90:
+                degree = 0;
+                break;
+            case 180:
+                degree = 0;
+                break;
+            case 270:
+                degree = 180;
+                break;
+        }
+        setOrientation(degree);
+        if (listener != null) {
+            listener.onChange(degree);
+        }
+    }
+
+    public static interface OnOrientationChangeListener {
+        void onChange(int degree);
     }
 
     /**

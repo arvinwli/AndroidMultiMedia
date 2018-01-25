@@ -71,7 +71,7 @@ public class CameraMediaCodecActivity extends Activity implements SurfaceHolder.
     }
 
     private void init() {
-        FFmpegHandle.getInstance().initVideo(url);
+        FFmpegHandle.getInstance().initVideo(url,WIDTH,HEIGHT);
         sv = findViewById(R.id.sv);
         initMediaCodec();
         mFlvPacker = new FlvPacker();
