@@ -15,17 +15,6 @@ extern "C" {
 #include "libavutil/imgutils.h"
 }
 
-AVFormatContext *audio_ofmc;
-AVStream *audio_st;
-AVCodecContext *audio_codec_ctx;
-AVCodec *audio_codec;
-AVFrame *audio_frame;
-AVPacket audio_packet;
-uint8_t *audio_frame_buf;
-int audio_buf_size = 0;
-int audio_frame_count = 0;
-int ret = 0;
-SwrContext *pSwrCtx = NULL;
 
 #include <iostream>
 
@@ -54,7 +43,7 @@ Java_com_wangheart_rtmpfile_audio_FFmpegAudioHandle_encodePcmFile(JNIEnv *env, j
     AVStream *audio_st;
     AVCodecContext *pCodecCtx;
     AVCodec *pCodec;
-
+    int ret = 0;
     uint8_t *frame_buf;
     AVFrame *frame;
     int size;
@@ -166,7 +155,7 @@ Java_com_wangheart_rtmpfile_audio_FFmpegAudioHandle_encodePcmFile(JNIEnv *env, j
                               indata, frame->nb_samples
         );
         //编码
-        int ret = avcodec_send_frame(pCodecCtx, frame);
+        ret = avcodec_send_frame(pCodecCtx, frame);
         if (ret < 0) {
             av_log(NULL, AV_LOG_ERROR, "%s", "avcodec_send_frame error\n");
         }
@@ -205,6 +194,21 @@ Java_com_wangheart_rtmpfile_audio_FFmpegAudioHandle_encodePcmFile(JNIEnv *env, j
 }
 
 
+AVFormatContext *audio_ofmc;
+AVOutputFormat *fmt;
+AVStream *audio_st;
+AVCodecContext *audio_codec_ctx;
+AVCodec *audio_codec;
+AVFrame *audio_frame;
+AVPacket audio_packet;
+uint8_t *audio_frame_buf;
+int audio_buf_size = 0;
+int audio_frame_count = 0;
+int ret = 0;
+SwrContext *pSwrCtx = NULL;
+int apts = 0;
+
+
 extern "C"
 JNIEXPORT jint JNICALL
 Java_com_wangheart_rtmpfile_audio_FFmpegAudioHandle_initAudio(JNIEnv *env, jobject instance,
@@ -213,40 +217,29 @@ Java_com_wangheart_rtmpfile_audio_FFmpegAudioHandle_initAudio(JNIEnv *env, jobje
     const char *url = env->GetStringUTFChars(url_, 0);
     logd(url);
     logd("start init");
-    av_register_all();
 
-    ret = avformat_alloc_output_context2(&audio_ofmc, NULL, "flv", url);
+    AVSampleFormat inSampleFmt = AV_SAMPLE_FMT_S16;
+    AVSampleFormat outSampleFmt = AV_SAMPLE_FMT_FLTP;
+    const int sampleRate = 44100;
+    av_register_all();
+    ret = avformat_alloc_output_context2(&audio_ofmc, NULL, NULL, url);
     if (ret < 0) {
         loge("avformat_alloc_output_context2 error\n");
         printAvError(ret);
         return ret;
     }
+    fmt = audio_ofmc->oformat;
+    //Open output URL
+    if (avio_open(&audio_ofmc->pb, url, AVIO_FLAG_READ_WRITE) < 0) {
+        loge("Failed to open output file!\n");
+        return -1;
+    }
     //output encoder initialize
-//    audio_codec = avcodec_find_encoder(AV_CODEC_ID_AAC);
-    audio_codec = avcodec_find_decoder_by_name("libfdk_aac");
+    audio_codec = avcodec_find_encoder(AV_CODEC_ID_AAC);
+//    audio_codec = avcodec_find_decoder_by_name("libfdk_aac");
     if (!audio_codec) {
         loge("Can not find encoder!\n");
         return -1;
-    }
-
-    audio_codec_ctx = avcodec_alloc_context3(audio_codec);
-    if (!audio_codec_ctx) {
-        loge("avcodec_alloc_context3 error\n");
-        return -1;
-    }
-    audio_codec_ctx->codec_id = audio_codec->id;
-    audio_codec_ctx->codec_type = AVMEDIA_TYPE_AUDIO;
-    audio_codec_ctx->sample_fmt = AV_SAMPLE_FMT_S16;
-    audio_codec_ctx->sample_rate = 44100;
-    audio_codec_ctx->channel_layout = AV_CH_LAYOUT_STEREO;
-    audio_codec_ctx->channels = av_get_channel_layout_nb_channels(audio_codec_ctx->channel_layout);
-    audio_codec_ctx->bit_rate = 64000;
-    audio_codec_ctx->frame_size = 1024;
-    ret = avcodec_open2(audio_codec_ctx, audio_codec, NULL);
-    if (ret < 0) {
-        loge("aac avcodec open fail");
-        printAvError(ret);
-        return ret;
     }
     //Show some information
     audio_st = avformat_new_stream(audio_ofmc, audio_codec);
@@ -254,12 +247,44 @@ Java_com_wangheart_rtmpfile_audio_FFmpegAudioHandle_initAudio(JNIEnv *env, jobje
         loge("avformat_new_stream error\n");
         return -1;
     }
-    //Open output URL
-    if (avio_open(&audio_ofmc->pb, url, AVIO_FLAG_READ_WRITE) < 0) {
-        loge("Failed to open output file!\n");
+
+//    audio_codec_ctx = avcodec_alloc_context3(audio_codec);
+//    if (!audio_codec_ctx) {
+//        loge("avcodec_alloc_context3 error\n");
+//        return -1;
+//    }
+    audio_codec_ctx = audio_st->codec;
+    audio_codec_ctx->codec_id = fmt->audio_codec;
+    audio_codec_ctx->codec_type = AVMEDIA_TYPE_AUDIO;
+    audio_codec_ctx->sample_fmt = outSampleFmt;
+    audio_codec_ctx->sample_rate = sampleRate;
+    audio_codec_ctx->channel_layout = AV_CH_LAYOUT_STEREO;
+    audio_codec_ctx->channels = av_get_channel_layout_nb_channels(audio_codec_ctx->channel_layout);
+    audio_codec_ctx->bit_rate = 64000;
+//    audio_codec_ctx->frame_size = 1024;
+    ///2 音频重采样 上下文初始化
+    pSwrCtx = swr_alloc_set_opts(pSwrCtx,
+                                 av_get_default_channel_layout(audio_codec_ctx->channels), outSampleFmt,
+                                 sampleRate,//输出格式
+                                 av_get_default_channel_layout( audio_codec_ctx->channels), inSampleFmt,
+                                 sampleRate, 0,
+                                 0);//输入格式
+    if (!pSwrCtx) {
+        av_log(NULL, AV_LOG_ERROR, "%s", "swr_alloc_set_opts failed!");
         return -1;
     }
-    avcodec_parameters_from_context(audio_st->codecpar, audio_codec_ctx);
+    ret = swr_init(pSwrCtx);
+
+
+    //输出格式信息
+    av_dump_format(audio_ofmc, 0, url, 1);
+
+    ret = avcodec_open2(audio_codec_ctx, audio_codec, NULL);
+    if (ret < 0) {
+        loge("aac avcodec open fail");
+        printAvError(ret);
+        return ret;
+    }
 
     audio_frame = av_frame_alloc();
     audio_frame->nb_samples = audio_codec_ctx->frame_size;
@@ -269,8 +294,8 @@ Java_com_wangheart_rtmpfile_audio_FFmpegAudioHandle_initAudio(JNIEnv *env, jobje
     audio_buf_size = av_samples_get_buffer_size(NULL, audio_codec_ctx->channels,
                                                 audio_codec_ctx->frame_size,
                                                 audio_codec_ctx->sample_fmt, 1);
-    __android_log_print(ANDROID_LOG_WARN, "eric", "%d,%d,%d", audio_buf_size,
-                        audio_codec_ctx->frame_size, audio_codec_ctx->channels);
+    av_log(NULL, AV_LOG_DEBUG, "eric", "%d,%d,%d", audio_buf_size,
+           audio_codec_ctx->frame_size, audio_codec_ctx->channels);
     audio_frame_buf = (uint8_t *) av_malloc((size_t) audio_buf_size);
     ret = avcodec_fill_audio_frame(audio_frame, audio_codec_ctx->channels,
                                    audio_codec_ctx->sample_fmt,
@@ -280,32 +305,26 @@ Java_com_wangheart_rtmpfile_audio_FFmpegAudioHandle_initAudio(JNIEnv *env, jobje
         loge("avcodec_fill_audio_frame error");
         return ret;
     }
-    av_new_packet(&audio_packet, audio_buf_size);
+    audio_st->codecpar->codec_tag = 0;
+    audio_st->time_base = audio_st->codec->time_base;
+    avcodec_parameters_from_context(audio_st->codecpar, audio_codec_ctx);
     //Write File Header
     ret = avformat_write_header(audio_ofmc, NULL);
+    av_new_packet(&audio_packet, audio_buf_size);
     if (ret < 0) {
         loge("avformat_write_header error");
         return ret;
     }
 
-    pSwrCtx = swr_alloc_set_opts(pSwrCtx,
-                                 audio_codec_ctx->channel_layout,
-                                 AV_SAMPLE_FMT_FLTP,
-                                 audio_codec_ctx->sample_rate,
-
-                                 audio_codec_ctx->channel_layout,
-                                 AV_SAMPLE_FMT_S16,
-                                 audio_codec_ctx->sample_rate,
-                                 0, NULL);
-    ret = swr_init(pSwrCtx);
     if (ret < 0) {
         printAvError(ret);
         loge("swr_init error");
+        return ret;
     }
     env->ReleaseStringUTFChars(url_, url);
+    ret = audio_frame->nb_samples * 2 * 2;
     return ret;
 }
-
 
 extern "C"
 JNIEXPORT jint JNICALL
@@ -314,12 +333,20 @@ Java_com_wangheart_rtmpfile_audio_FFmpegAudioHandle_encodeAudio(JNIEnv *env, job
     int ret = 0;
     jbyte *buffer = env->GetByteArrayElements(buffer_, NULL);
     jsize theArrayLengthJ = env->GetArrayLength(buffer_);
-    __android_log_print(ANDROID_LOG_WARN, "eric", "size: %d", theArrayLengthJ);
-//    ret = transSample((const uint8_t *) buffer, audio_frame);
-    audio_frame->data[0] = audio_frame_buf;
-    //  memccpy(audio_frame->data[0],buffer,theArrayLengthJ);
-//    memcpy(audio_frame->data[0], buffer, length);
-    audio_frame->pts = (audio_frame_count++) * 100;
+    av_log(NULL, AV_LOG_DEBUG, "开始编码：%d", theArrayLengthJ);
+    audio_frame->pts = apts;
+    AVRational av;
+    av.num = 1;
+    av.den = audio_frame->nb_samples;
+    apts += av_rescale_q(audio_frame->nb_samples, av, audio_codec_ctx->time_base);
+    //重采样源数据
+    const uint8_t *indata[AV_NUM_DATA_POINTERS] = {0};
+    indata[0] = (uint8_t *) buffer;
+    int len = swr_convert(pSwrCtx, audio_frame->data, audio_frame->nb_samples, //输出参数，输出存储地址和样本数量
+                          indata, audio_frame->nb_samples);
+    if (len < 0) {
+        av_log(NULL, AV_LOG_ERROR, "swr_convert error");
+    }
     ret = avcodec_send_frame(audio_codec_ctx, audio_frame);
     if (ret != 0) {
         printAvError(ret);
@@ -330,14 +357,18 @@ Java_com_wangheart_rtmpfile_audio_FFmpegAudioHandle_encodeAudio(JNIEnv *env, job
     ret = avcodec_receive_packet(audio_codec_ctx, &audio_packet);
     if (ret < 0) {
         logw("Failed to encode!\n");
+        printAvError(ret);
         return -1;
     }
-
+    audio_packet.pts = av_rescale_q(audio_packet.pts, audio_codec_ctx->time_base, audio_st->time_base);
+    audio_packet.dts = av_rescale_q(audio_packet.dts, audio_codec_ctx->time_base, audio_st->time_base);
+    audio_packet.duration = av_rescale_q(audio_packet.duration, audio_codec_ctx->time_base, audio_st->time_base);
     ret = av_write_frame(audio_ofmc, &audio_packet);
     if (ret < 0) {
         logw("write error");
     }
-    av_frame_free(&audio_frame);
+    av_packet_unref(&audio_packet);
+    av_log(NULL, AV_LOG_DEBUG, "encode success %d" , ret);
 
     env->ReleaseByteArrayElements(buffer_, buffer, 0);
     return ret;
@@ -353,5 +384,6 @@ Java_com_wangheart_rtmpfile_audio_FFmpegAudioHandle_close(JNIEnv *env, jobject i
         avformat_free_context(audio_ofmc);
         audio_ofmc = NULL;
     }
+    av_frame_free(&audio_frame);
     return 0;
 }
