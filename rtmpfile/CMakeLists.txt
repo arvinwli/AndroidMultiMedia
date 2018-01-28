@@ -21,7 +21,8 @@ add_library( # Sets the name of the library.
              # Provides a relative path to your source file(s).
              src/main/cpp/ffmpeg_handle.cpp
              src/main/cpp/rtmp_handle.cpp
-             src/main/cpp/ffmpeg_audio_handle.cpp)
+             src/main/cpp/ffmpeg_audio_handle.cpp
+             src/main/cpp/common.cpp)
 
 #引用的头文件
 include_directories(

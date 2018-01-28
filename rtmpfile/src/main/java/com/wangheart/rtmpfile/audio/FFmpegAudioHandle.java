@@ -37,6 +37,8 @@ public class FFmpegAudioHandle {
         System.loadLibrary("ffmpeg-handle");
     }
 
+    public native int encodePcmFile(String souPath,String tarPath);
+
     public native int initAudio(String url);
 
     public native int encodeAudio(byte[] buffer);

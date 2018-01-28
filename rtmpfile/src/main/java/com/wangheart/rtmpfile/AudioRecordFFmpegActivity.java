@@ -10,10 +10,12 @@ import android.view.View;
 import com.wangheart.rtmpfile.audio.FFmpegAudioHandle;
 import com.wangheart.rtmpfile.utils.ADTSUtils;
 import com.wangheart.rtmpfile.utils.FileUtil;
+import com.wangheart.rtmpfile.utils.IOUtils;
 import com.wangheart.rtmpfile.utils.LogUtils;
 
 import org.jetbrains.annotations.Nullable;
 
+import java.io.OutputStream;
 import java.util.Date;
 import java.util.concurrent.ArrayBlockingQueue;
 
@@ -39,7 +41,7 @@ public class AudioRecordFFmpegActivity extends Activity {
     private boolean isRecord = false;
     private int MAX_BUFFER_SIZE = 10240;
     int ret = 0;
-
+    OutputStream out;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -48,9 +50,10 @@ public class AudioRecordFFmpegActivity extends Activity {
     }
 
     public void btnStart(View view) {
+        out = IOUtils.open(FileUtil.getMainDir() + "/AudioRecordFFmpegActivity.pcm", false);
         ret = FFmpegAudioHandle.getInstance().initAudio(FileUtil.getMainDir().getAbsolutePath() + "/record_ffmpeg.flv");
         if (ret != 0) {
-            LogUtils.e("initAudio error "+ret);
+            LogUtils.e("initAudio error " + ret);
             return;
         }
         initAudioDevice();
@@ -90,6 +93,7 @@ public class AudioRecordFFmpegActivity extends Activity {
             // stereo 立体声，
             int channelConfig = AudioFormat.CHANNEL_CONFIGURATION_STEREO;
             int buffsize = AudioRecord.getMinBufferSize(sampleRate, channelConfig, audioFormat);
+            buffsize = 8192;
             mAudioRecord = new AudioRecord(MediaRecorder.AudioSource.MIC, sampleRate, channelConfig,
                     audioFormat, buffsize);
             if (mAudioRecord.getState() == AudioRecord.STATE_INITIALIZED && buffsize <= MAX_BUFFER_SIZE) {
@@ -118,6 +122,7 @@ public class AudioRecordFFmpegActivity extends Activity {
                 byte[] audio = new byte[size];
                 System.arraycopy(mAudioBuffer, 0, audio, 0, size);
                 LogUtils.v("采集到数据:" + audio.length);
+//                IOUtils.write(out, audio, 0, audio.length);
                 putPCMData(audio);
             }
         }
@@ -154,6 +159,17 @@ public class AudioRecordFFmpegActivity extends Activity {
         return null;
     }
 
+    public void btnEncodePcmFile(View view) {
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                FFmpegAudioHandle.getInstance().encodePcmFile(FileUtil.getMainDir() + "/tdjm.pcm",
+                        FileUtil.getMainDir() + "/tdjm.aac");
+            }
+        }).start();
+
+    }
+
     private class EncodeRunnable implements Runnable {
         @Override
         public void run() {
@@ -181,5 +197,6 @@ public class AudioRecordFFmpegActivity extends Activity {
             mAudioRecord.release();
         }
         LogUtils.w("release");
+        IOUtils.close(out);
     }
 }
