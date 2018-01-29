@@ -16,9 +16,13 @@ import com.wangheart.rtmpfile.utils.LogUtils;
 
 import org.jetbrains.annotations.Nullable;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.Date;
-import java.util.concurrent.ArrayBlockingQueue;
 
 /**
  * Author : eric
@@ -47,12 +51,12 @@ public class AudioRecordFFmpegActivity extends Activity {
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_audio_record);
+        setContentView(R.layout.activity_audio_record_ffmpeg);
     }
 
     public void btnStart(View view) {
         out = IOUtils.open(FileUtil.getMainDir() + "/AudioRecordFFmpegActivity.pcm", false);
-        ret = FFmpegAudioHandle.getInstance().initAudio(FileUtil.getMainDir()+ "/record_ffmpeg.aac");
+        ret = FFmpegAudioHandle.getInstance().initAudio(FileUtil.getMainDir() + "/record_ffmpeg.aac");
         if (ret < 0) {
             LogUtils.e("initAudio error " + ret);
             return;
@@ -72,7 +76,6 @@ public class AudioRecordFFmpegActivity extends Activity {
 
     public void btnStop(View view) {
         isRecord = false;
-        FFmpegAudioHandle.getInstance().close();
     }
 
     private Runnable fetchAudioRunnable() {
@@ -95,7 +98,6 @@ public class AudioRecordFFmpegActivity extends Activity {
             // stereo 立体声，
             int channelConfig = AudioFormat.CHANNEL_CONFIGURATION_STEREO;
             int buffsize = AudioRecord.getMinBufferSize(sampleRate, channelConfig, audioFormat);
-//            buffsize = 8192;
             mAudioRecord = new AudioRecord(MediaRecorder.AudioSource.MIC, sampleRate, channelConfig,
                     audioFormat, buffsize);
             if (mAudioRecord.getState() == AudioRecord.STATE_INITIALIZED && buffsize <= MAX_BUFFER_SIZE) {
@@ -137,7 +139,7 @@ public class AudioRecordFFmpegActivity extends Activity {
      */
     private void putPCMData(byte[] pcmChunk) {
         try {
-            audioBuffer.put(pcmChunk);
+            audioBuffer.put(pcmChunk, 0, pcmChunk.length);
         } catch (Exception e) {
             e.printStackTrace();
             LogUtils.e("queue put error");
@@ -159,44 +161,66 @@ public class AudioRecordFFmpegActivity extends Activity {
     }
 
     public void btnEncodePcmFile(View view) {
-        final AudioBuffer audioBuffer = new AudioBuffer(4);
         new Thread(new Runnable() {
             @Override
             public void run() {
-                for (int i = 0; i < 50; i++) {
-                    try {
-                        Thread.sleep(100);
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();
-                    }
-                    audioBuffer.put("12345678".getBytes());
-                }
-            }
-        }).start();
-
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                for (int i = 0; i < 50; i++) {
-                    try {
-                        Thread.sleep(150);
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();
-                    }
-                    byte[] b;
-                    b = audioBuffer.getFrameBuf();
-                    LogUtils.d(b == null ? "null" : new String(b));
-                }
-            }
-        }).start();
-//        new Thread(new Runnable() {
-//            @Override
-//            public void run() {
 //                FFmpegAudioHandle.getInstance().encodePcmFile(FileUtil.getMainDir() + "/tdjm.pcm",
-//                        FileUtil.getMainDir() + "/tdjm.aac");
-//            }
-//        }).start();
+                FFmpegAudioHandle.getInstance().encodePcmFile(FileUtil.getMainDir() + "/AudioRecordFFmpegActivity.pcm",
+                        FileUtil.getMainDir() + "/tdjm.aac");
+            }
+        }).start();
+    }
 
+    public void btnTest(View view) {
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                int count = 0;
+                InputStream in = null;
+                ret = FFmpegAudioHandle.getInstance().initAudio(FileUtil.getMainDir() + "/record_ffmpeg.aac");
+                if (ret < 0) {
+                    LogUtils.e("init audio error ");
+                    return;
+                }
+                int len = 0;
+                LogUtils.d("read size " + ret);
+                audioBuffer = new AudioBuffer(ret);
+                try {
+                    int readSize = ret * 2;
+                    byte[] buff = new byte[readSize];
+                    in = new FileInputStream(new File(FileUtil.getMainDir(), "AudioRecordFFmpegActivity.pcm"));
+                    LogUtils.w("avaliable " + in.available());
+                    while ((len = in.read(buff)) >= ret) {
+                        count++;
+                        LogUtils.w("read " + len + "  " + count);
+                        audioBuffer.put(buff, 0, len);
+                    }
+                } catch (FileNotFoundException e) {
+                    e.printStackTrace();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                } finally {
+                    IOUtils.close(in);
+                }
+            }
+        }).start();
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    Thread.sleep(200);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+                while (!audioBuffer.isEmpty()) {
+                    byte[] buf = audioBuffer.getFrameBuf();
+                    if (buf != null) {
+                        FFmpegAudioHandle.getInstance().encodeAudio(buf);
+                    }
+                }
+                FFmpegAudioHandle.getInstance().close();
+            }
+        }).start();
     }
 
     private class EncodeRunnable implements Runnable {

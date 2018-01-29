@@ -1,5 +1,6 @@
 package com.wangheart.rtmpfile.utils;
 
+import java.io.Closeable;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -35,18 +36,17 @@ public class IOUtils {
         }
     }
 
-    public static void close(OutputStream out) {
-        if (out != null) {
+    public static void close(Closeable io) {
+        if (io != null) {
             try {
-                out.flush();
-                out.close();
-                out = null;
+                io.close();
+                io = null;
             } catch (IOException e) {
                 e.printStackTrace();
             } finally {
-                if (out != null) {
+                if (io != null) {
                     try {
-                        out.close();
+                        io.close();
                     } catch (IOException e) {
                         e.printStackTrace();
                     }

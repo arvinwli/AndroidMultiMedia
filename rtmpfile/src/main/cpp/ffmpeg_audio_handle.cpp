@@ -248,11 +248,6 @@ Java_com_wangheart_rtmpfile_audio_FFmpegAudioHandle_initAudio(JNIEnv *env, jobje
         return -1;
     }
 
-//    audio_codec_ctx = avcodec_alloc_context3(audio_codec);
-//    if (!audio_codec_ctx) {
-//        loge("avcodec_alloc_context3 error\n");
-//        return -1;
-//    }
     audio_codec_ctx = audio_st->codec;
     audio_codec_ctx->codec_id = fmt->audio_codec;
     audio_codec_ctx->codec_type = AVMEDIA_TYPE_AUDIO;
@@ -264,9 +259,11 @@ Java_com_wangheart_rtmpfile_audio_FFmpegAudioHandle_initAudio(JNIEnv *env, jobje
 //    audio_codec_ctx->frame_size = 1024;
     ///2 音频重采样 上下文初始化
     pSwrCtx = swr_alloc_set_opts(pSwrCtx,
-                                 av_get_default_channel_layout(audio_codec_ctx->channels), outSampleFmt,
+                                 av_get_default_channel_layout(audio_codec_ctx->channels),
+                                 outSampleFmt,
                                  sampleRate,//输出格式
-                                 av_get_default_channel_layout( audio_codec_ctx->channels), inSampleFmt,
+                                 av_get_default_channel_layout(audio_codec_ctx->channels),
+                                 inSampleFmt,
                                  sampleRate, 0,
                                  0);//输入格式
     if (!pSwrCtx) {
@@ -294,8 +291,10 @@ Java_com_wangheart_rtmpfile_audio_FFmpegAudioHandle_initAudio(JNIEnv *env, jobje
     audio_buf_size = av_samples_get_buffer_size(NULL, audio_codec_ctx->channels,
                                                 audio_codec_ctx->frame_size,
                                                 audio_codec_ctx->sample_fmt, 1);
-    av_log(NULL, AV_LOG_DEBUG, "eric", "%d,%d,%d", audio_buf_size,
-           audio_codec_ctx->frame_size, audio_codec_ctx->channels);
+    av_log(NULL, AV_LOG_DEBUG, "FFmpeg参数:%d,%d,%d",
+           audio_buf_size,
+           audio_codec_ctx->frame_size,
+           audio_codec_ctx->channels);
     audio_frame_buf = (uint8_t *) av_malloc((size_t) audio_buf_size);
     ret = avcodec_fill_audio_frame(audio_frame, audio_codec_ctx->channels,
                                    audio_codec_ctx->sample_fmt,
@@ -326,10 +325,14 @@ Java_com_wangheart_rtmpfile_audio_FFmpegAudioHandle_initAudio(JNIEnv *env, jobje
     return ret;
 }
 
+
+int64_t currentTime = 0;
+int countEncode=0;
 extern "C"
 JNIEXPORT jint JNICALL
 Java_com_wangheart_rtmpfile_audio_FFmpegAudioHandle_encodeAudio(JNIEnv *env, jobject instance,
                                                                 jbyteArray buffer_) {
+    countEncode++;
     int ret = 0;
     jbyte *buffer = env->GetByteArrayElements(buffer_, NULL);
     jsize theArrayLengthJ = env->GetArrayLength(buffer_);
@@ -347,6 +350,7 @@ Java_com_wangheart_rtmpfile_audio_FFmpegAudioHandle_encodeAudio(JNIEnv *env, job
     if (len < 0) {
         av_log(NULL, AV_LOG_ERROR, "swr_convert error");
     }
+    currentTime = av_gettime();
     ret = avcodec_send_frame(audio_codec_ctx, audio_frame);
     if (ret != 0) {
         printAvError(ret);
@@ -355,20 +359,24 @@ Java_com_wangheart_rtmpfile_audio_FFmpegAudioHandle_encodeAudio(JNIEnv *env, job
     }
     //获取编码后的数据
     ret = avcodec_receive_packet(audio_codec_ctx, &audio_packet);
+    av_log(NULL, AV_LOG_DEBUG, "编码时间  %lli", (av_gettime() - currentTime) / 1000);
     if (ret < 0) {
         logw("Failed to encode!\n");
         printAvError(ret);
         return -1;
     }
-    audio_packet.pts = av_rescale_q(audio_packet.pts, audio_codec_ctx->time_base, audio_st->time_base);
-    audio_packet.dts = av_rescale_q(audio_packet.dts, audio_codec_ctx->time_base, audio_st->time_base);
-    audio_packet.duration = av_rescale_q(audio_packet.duration, audio_codec_ctx->time_base, audio_st->time_base);
+    audio_packet.pts = av_rescale_q(audio_packet.pts, audio_codec_ctx->time_base,
+                                    audio_st->time_base);
+    audio_packet.dts = av_rescale_q(audio_packet.dts, audio_codec_ctx->time_base,
+                                    audio_st->time_base);
+    audio_packet.duration = av_rescale_q(audio_packet.duration, audio_codec_ctx->time_base,
+                                         audio_st->time_base);
     ret = av_write_frame(audio_ofmc, &audio_packet);
     if (ret < 0) {
         logw("write error");
     }
     av_packet_unref(&audio_packet);
-    av_log(NULL, AV_LOG_DEBUG, "encode success %d" , ret);
+    av_log(NULL, AV_LOG_DEBUG, "encode success %d", countEncode);
 
     env->ReleaseByteArrayElements(buffer_, buffer, 0);
     return ret;
