@@ -82,12 +82,16 @@ public class AudioRecordFFmpegActivity extends Activity {
     }
 
 
+    /**
+     * 编码tdjm.pcm文件为tdjm.aac
+     * @param view
+     */
     public void btnEncodePcmFile(View view) {
         new Thread(new Runnable() {
             @Override
             public void run() {
-//                FFmpegAudioHandle.getInstance().encodePcmFile(FileUtil.getMainDir() + "/tdjm.pcm",
-                FFmpegAudioHandle.getInstance().encodePcmFile(FileUtil.getMainDir() + "/AudioRecordFFmpegActivity.pcm",
+                FFmpegAudioHandle.getInstance().encodePcmFile(FileUtil.getMainDir() + "/tdjm.pcm",
+//                FFmpegAudioHandle.getInstance().encodePcmFile(FileUtil.getMainDir() + "/AudioRecordFFmpegActivity.pcm",
                         FileUtil.getMainDir() + "/tdjm.aac");
             }
         }).start();

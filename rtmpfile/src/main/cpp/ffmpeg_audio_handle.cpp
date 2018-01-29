@@ -194,6 +194,13 @@ Java_com_wangheart_rtmpfile_audio_FFmpegAudioHandle_encodePcmFile(JNIEnv *env, j
 }
 
 
+/*
+ * =============================================================
+ *
+ *          Android设备实时采集，FFmpeg编码输出到文件
+ *
+ * =============================================================
+ */
 AVFormatContext *audio_ofmc;
 AVOutputFormat *fmt;
 AVStream *audio_st;
@@ -208,16 +215,17 @@ int ret = 0;
 SwrContext *pSwrCtx = NULL;
 int apts = 0;
 
-
+/**
+ * 初始化FFmpeg，打开编码器等
+ *  * 返回编码一帧需要的字节数。也就是后面调用编码方法时候传递数据的大小
+ */
 extern "C"
 JNIEXPORT jint JNICALL
 Java_com_wangheart_rtmpfile_audio_FFmpegAudioHandle_initAudio(JNIEnv *env, jobject instance,
                                                               jstring url_) {
     av_log_set_callback(log_callback_null);
     const char *url = env->GetStringUTFChars(url_, 0);
-    logd(url);
-    logd("start init");
-
+    av_log(NULL, AV_LOG_DEBUG, "start init %s", url);
     AVSampleFormat inSampleFmt = AV_SAMPLE_FMT_S16;
     AVSampleFormat outSampleFmt = AV_SAMPLE_FMT_FLTP;
     const int sampleRate = 44100;
@@ -234,14 +242,14 @@ Java_com_wangheart_rtmpfile_audio_FFmpegAudioHandle_initAudio(JNIEnv *env, jobje
         loge("Failed to open output file!\n");
         return -1;
     }
-    //output encoder initialize
+    //寻找编码器
     audio_codec = avcodec_find_encoder(AV_CODEC_ID_AAC);
 //    audio_codec = avcodec_find_decoder_by_name("libfdk_aac");
     if (!audio_codec) {
         loge("Can not find encoder!\n");
         return -1;
     }
-    //Show some information
+    //新建一个流
     audio_st = avformat_new_stream(audio_ofmc, audio_codec);
     if (!audio_st) {
         loge("avformat_new_stream error\n");
@@ -272,10 +280,10 @@ Java_com_wangheart_rtmpfile_audio_FFmpegAudioHandle_initAudio(JNIEnv *env, jobje
     }
     ret = swr_init(pSwrCtx);
 
-
     //输出格式信息
     av_dump_format(audio_ofmc, 0, url, 1);
 
+    //打开编码器
     ret = avcodec_open2(audio_codec_ctx, audio_codec, NULL);
     if (ret < 0) {
         loge("aac avcodec open fail");
@@ -283,11 +291,12 @@ Java_com_wangheart_rtmpfile_audio_FFmpegAudioHandle_initAudio(JNIEnv *env, jobje
         return ret;
     }
 
+    //初始化AVFrame
     audio_frame = av_frame_alloc();
     audio_frame->nb_samples = audio_codec_ctx->frame_size;
     audio_frame->format = audio_codec_ctx->sample_fmt;
 
-
+    //获取AVFrame数据的缓冲区大小
     audio_buf_size = av_samples_get_buffer_size(NULL, audio_codec_ctx->channels,
                                                 audio_codec_ctx->frame_size,
                                                 audio_codec_ctx->sample_fmt, 1);
@@ -295,6 +304,7 @@ Java_com_wangheart_rtmpfile_audio_FFmpegAudioHandle_initAudio(JNIEnv *env, jobje
            audio_buf_size,
            audio_codec_ctx->frame_size,
            audio_codec_ctx->channels);
+    //为AVFrame设置缓冲区
     audio_frame_buf = (uint8_t *) av_malloc((size_t) audio_buf_size);
     ret = avcodec_fill_audio_frame(audio_frame, audio_codec_ctx->channels,
                                    audio_codec_ctx->sample_fmt,
@@ -304,10 +314,11 @@ Java_com_wangheart_rtmpfile_audio_FFmpegAudioHandle_initAudio(JNIEnv *env, jobje
         loge("avcodec_fill_audio_frame error");
         return ret;
     }
+    //设置编码器上下文参数
     audio_st->codecpar->codec_tag = 0;
     audio_st->time_base = audio_st->codec->time_base;
     avcodec_parameters_from_context(audio_st->codecpar, audio_codec_ctx);
-    //Write File Header
+    //写入头信息
     ret = avformat_write_header(audio_ofmc, NULL);
     av_new_packet(&audio_packet, audio_buf_size);
     if (ret < 0) {
@@ -321,17 +332,21 @@ Java_com_wangheart_rtmpfile_audio_FFmpegAudioHandle_initAudio(JNIEnv *env, jobje
         return ret;
     }
     env->ReleaseStringUTFChars(url_, url);
+    //返回AV_SAMPLE_FMT_S16格式pcm的每一帧的大小
     ret = audio_frame->nb_samples * 2 * 2;
     return ret;
 }
 
-
+/**
+ * 编码
+ */
 int64_t currentTime = 0;
-int countEncode=0;
+int countEncode = 0;
 extern "C"
 JNIEXPORT jint JNICALL
 Java_com_wangheart_rtmpfile_audio_FFmpegAudioHandle_encodeAudio(JNIEnv *env, jobject instance,
                                                                 jbyteArray buffer_) {
+    //记录编码次数
     countEncode++;
     int ret = 0;
     jbyte *buffer = env->GetByteArrayElements(buffer_, NULL);
@@ -382,6 +397,9 @@ Java_com_wangheart_rtmpfile_audio_FFmpegAudioHandle_encodeAudio(JNIEnv *env, job
     return ret;
 }
 
+/**
+ * 释放资源
+ */
 extern "C"
 JNIEXPORT jint JNICALL
 Java_com_wangheart_rtmpfile_audio_FFmpegAudioHandle_close(JNIEnv *env, jobject instance) {
