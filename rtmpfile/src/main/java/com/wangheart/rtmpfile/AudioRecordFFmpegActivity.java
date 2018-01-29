@@ -6,6 +6,7 @@ import android.media.AudioRecord;
 import android.media.MediaRecorder;
 import android.os.Bundle;
 import android.view.View;
+import android.widget.Toast;
 
 import com.wangheart.rtmpfile.audio.AudioBuffer;
 import com.wangheart.rtmpfile.audio.FFmpegAudioHandle;
@@ -29,7 +30,7 @@ import java.util.Date;
  * CreateDate : 2018/1/5  14:01
  * Email : ericli_wang@163.com
  * Version : 2.0
- * Desc :
+ * Desc :  如果需要把采集的原始数据输出到pcm文件，把out相关的注释打开即可
  * Modified :
  */
 
@@ -38,14 +39,14 @@ public class AudioRecordFFmpegActivity extends Activity {
     private int mAudioSampleRate;
     private int mAudioChanelCount;
     private byte[] mAudioBuffer;
-    private long presentationTimeUs;
     private Thread mRecordThread;
     private Thread mEncodeThread;
     private int mSampleRateType;
     private boolean isRecord = false;
     private int MAX_BUFFER_SIZE = 10240;
-    int ret = 0;
-    OutputStream out;
+    private int ret = 0;
+    //采集数据并输入到pcm文件。
+    private OutputStream out;
     private AudioBuffer audioBuffer;
 
     @Override
@@ -55,16 +56,18 @@ public class AudioRecordFFmpegActivity extends Activity {
     }
 
     public void btnStart(View view) {
-        out = IOUtils.open(FileUtil.getMainDir() + "/AudioRecordFFmpegActivity.pcm", false);
+//        out = IOUtils.open(FileUtil.getMainDir() + "/AudioRecordFFmpegActivity.pcm", false);
         ret = FFmpegAudioHandle.getInstance().initAudio(FileUtil.getMainDir() + "/record_ffmpeg.aac");
         if (ret < 0) {
             LogUtils.e("initAudio error " + ret);
             return;
         }
-        LogUtils.d("readSize " + ret);
+        LogUtils.d("ReadSize " + ret);
         audioBuffer = new AudioBuffer(ret);
-        initAudioDevice();
-        presentationTimeUs = new Date().getTime() * 1000;
+        if (!initAudioDevice()) {
+            LogUtils.e("initAudioDevice failed");
+            return;
+        }
         isRecord = true;
         //开启录音
         mRecordThread = new Thread(fetchAudioRunnable());
@@ -78,6 +81,52 @@ public class AudioRecordFFmpegActivity extends Activity {
         isRecord = false;
     }
 
+
+    public void btnEncodePcmFile(View view) {
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+//                FFmpegAudioHandle.getInstance().encodePcmFile(FileUtil.getMainDir() + "/tdjm.pcm",
+                FFmpegAudioHandle.getInstance().encodePcmFile(FileUtil.getMainDir() + "/AudioRecordFFmpegActivity.pcm",
+                        FileUtil.getMainDir() + "/tdjm.aac");
+            }
+        }).start();
+    }
+
+    public void btnTest(View view) {
+        final File filePcm = new File(FileUtil.getMainDir(), "AudioRecordFFmpegActivity.pcm");
+        if (!filePcm.exists()) {
+            LogUtils.d("AudioRecordFFmpegActivity.pcm is not exist");
+        }
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                InputStream in = null;
+                int readSize = FFmpegAudioHandle.getInstance().initAudio(FileUtil.getMainDir() + "/record_ffmpeg.aac");
+                if (readSize <= 0) {
+                    LogUtils.e("init audio error ");
+                    return;
+                }
+                LogUtils.d("readSize" + ret);
+                audioBuffer = new AudioBuffer(ret);
+                try {
+                    byte[] buff = new byte[readSize];
+                    in = new FileInputStream(filePcm);
+                    while (in.read(buff) >= ret) {
+                        FFmpegAudioHandle.getInstance().encodeAudio(buff);
+                    }
+                } catch (FileNotFoundException e) {
+                    e.printStackTrace();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                } finally {
+                    IOUtils.close(in);
+                    FFmpegAudioHandle.getInstance().close();
+                }
+            }
+        }).start();
+    }
+
     private Runnable fetchAudioRunnable() {
         return new Runnable() {
             @Override
@@ -88,27 +137,27 @@ public class AudioRecordFFmpegActivity extends Activity {
     }
 
     /**
-     * 初始化AudioRecord
+     * 初始化AudioRecord  这里测试就直接用44100采样率 双声道  16bit。于FFmpeg编码器重保持一致
+     * 当然大家可以根据自己的情况来修改，这里只是抛砖引玉。
      */
-    private void initAudioDevice() {
-        int[] sampleRates = {44100, 22050, 16000, 11025};
-        for (int sampleRate : sampleRates) {
-            //编码制式
-            int audioFormat = AudioFormat.ENCODING_PCM_16BIT;
-            // stereo 立体声，
-            int channelConfig = AudioFormat.CHANNEL_CONFIGURATION_STEREO;
-            int buffsize = AudioRecord.getMinBufferSize(sampleRate, channelConfig, audioFormat);
-            mAudioRecord = new AudioRecord(MediaRecorder.AudioSource.MIC, sampleRate, channelConfig,
-                    audioFormat, buffsize);
-            if (mAudioRecord.getState() == AudioRecord.STATE_INITIALIZED && buffsize <= MAX_BUFFER_SIZE) {
-                mAudioSampleRate = sampleRate;
-                mAudioChanelCount = channelConfig == AudioFormat.CHANNEL_CONFIGURATION_STEREO ? 2 : 1;
-                mAudioBuffer = new byte[buffsize];
-                mSampleRateType = ADTSUtils.getSampleRateType(sampleRate);
-                LogUtils.w("编码器参数:" + mAudioSampleRate + " " + mSampleRateType + " " + mAudioChanelCount + " " + buffsize);
-                break;
-            }
+    private boolean initAudioDevice() {
+        int sampleRate = 44100;
+        //编码制式
+        int audioFormat = AudioFormat.ENCODING_PCM_16BIT;
+        // stereo 立体声，
+        int channelConfig = AudioFormat.CHANNEL_CONFIGURATION_STEREO;
+        int buffsize = AudioRecord.getMinBufferSize(sampleRate, channelConfig, audioFormat);
+        mAudioRecord = new AudioRecord(MediaRecorder.AudioSource.MIC, sampleRate, channelConfig,
+                audioFormat, buffsize);
+        if (mAudioRecord.getState() == AudioRecord.STATE_INITIALIZED && buffsize <= MAX_BUFFER_SIZE) {
+            mAudioSampleRate = sampleRate;
+            mAudioChanelCount = channelConfig == AudioFormat.CHANNEL_CONFIGURATION_STEREO ? 2 : 1;
+            mAudioBuffer = new byte[buffsize];
+            mSampleRateType = ADTSUtils.getSampleRateType(sampleRate);
+            LogUtils.w("编码器参数:" + mAudioSampleRate + " " + mSampleRateType + " " + mAudioChanelCount + " " + buffsize);
+            return true;
         }
+        return false;
     }
 
     /**
@@ -127,101 +176,12 @@ public class AudioRecordFFmpegActivity extends Activity {
                 System.arraycopy(mAudioBuffer, 0, audio, 0, size);
                 LogUtils.v("采集到数据:" + audio.length);
 //                IOUtils.write(out, audio, 0, audio.length);
-                putPCMData(audio);
+                audioBuffer.put(audio, 0, audio.length);
+
             }
         }
     }
 
-    /**
-     * 将PCM数据存入队列
-     *
-     * @param pcmChunk PCM数据块
-     */
-    private void putPCMData(byte[] pcmChunk) {
-        try {
-            audioBuffer.put(pcmChunk, 0, pcmChunk.length);
-        } catch (Exception e) {
-            e.printStackTrace();
-            LogUtils.e("queue put error");
-        }
-    }
-
-    /**
-     * 在Container中队列取出PCM数据
-     *
-     * @return PCM数据块
-     */
-    private byte[] getPCMData() {
-        try {
-            return audioBuffer.getFrameBuf();
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        return null;
-    }
-
-    public void btnEncodePcmFile(View view) {
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-//                FFmpegAudioHandle.getInstance().encodePcmFile(FileUtil.getMainDir() + "/tdjm.pcm",
-                FFmpegAudioHandle.getInstance().encodePcmFile(FileUtil.getMainDir() + "/AudioRecordFFmpegActivity.pcm",
-                        FileUtil.getMainDir() + "/tdjm.aac");
-            }
-        }).start();
-    }
-
-    public void btnTest(View view) {
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                int count = 0;
-                InputStream in = null;
-                ret = FFmpegAudioHandle.getInstance().initAudio(FileUtil.getMainDir() + "/record_ffmpeg.aac");
-                if (ret < 0) {
-                    LogUtils.e("init audio error ");
-                    return;
-                }
-                int len = 0;
-                LogUtils.d("read size " + ret);
-                audioBuffer = new AudioBuffer(ret);
-                try {
-                    int readSize = ret * 2;
-                    byte[] buff = new byte[readSize];
-                    in = new FileInputStream(new File(FileUtil.getMainDir(), "AudioRecordFFmpegActivity.pcm"));
-                    LogUtils.w("avaliable " + in.available());
-                    while ((len = in.read(buff)) >= ret) {
-                        count++;
-                        LogUtils.w("read " + len + "  " + count);
-                        audioBuffer.put(buff, 0, len);
-                    }
-                } catch (FileNotFoundException e) {
-                    e.printStackTrace();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                } finally {
-                    IOUtils.close(in);
-                }
-            }
-        }).start();
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                try {
-                    Thread.sleep(200);
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
-                while (!audioBuffer.isEmpty()) {
-                    byte[] buf = audioBuffer.getFrameBuf();
-                    if (buf != null) {
-                        FFmpegAudioHandle.getInstance().encodeAudio(buf);
-                    }
-                }
-                FFmpegAudioHandle.getInstance().close();
-            }
-        }).start();
-    }
 
     private class EncodeRunnable implements Runnable {
         @Override
@@ -234,7 +194,7 @@ public class AudioRecordFFmpegActivity extends Activity {
     }
 
     private void encodePCM() {
-        byte[] chunkPCM = getPCMData();//获取解码器所在线程输出的数据 代码后边会贴上
+        byte[] chunkPCM = audioBuffer.getFrameBuf();//获取解码器所在线程输出的数据 代码后边会贴上
         if (chunkPCM == null) {
             return;
         }
@@ -250,6 +210,6 @@ public class AudioRecordFFmpegActivity extends Activity {
             mAudioRecord.release();
         }
         LogUtils.w("release");
-        IOUtils.close(out);
+//        IOUtils.close(out);
     }
 }

@@ -5,26 +5,31 @@
     android:orientation="vertical">
 
     <Button
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:onClick="btnEncodePcmFile"
-        android:text="encode pcm file" />
-
-    <Button
-        android:layout_width="wrap_content"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:onClick="btnStart"
-        android:text="开始" />
+        android:text="开始录音采集并编码" />
 
     <Button
-        android:layout_width="wrap_content"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:onClick="btnStop"
-        android:text="结束" />
+        android:text="结束录音采集" />
+
+    <Button
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:onClick="btnEncodePcmFile"
+        android:text="cpp read pcm And FFmpeg encode pcm file" />
 
     <Button
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:onClick="btnTest"
-        android:text="测试" />
+        android:text="java read pcm And FFmpeg encode pcm file" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/activity_audio_record_ffmpeg_info" />
 </LinearLayout>

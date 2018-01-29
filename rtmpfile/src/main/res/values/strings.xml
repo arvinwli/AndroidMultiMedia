@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">RtmpFile</string>
+    <string name="activity_audio_record_ffmpeg_info"></string>
 </resources>
