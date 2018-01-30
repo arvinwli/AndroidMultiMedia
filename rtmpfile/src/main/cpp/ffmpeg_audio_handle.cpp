@@ -52,7 +52,7 @@ Java_com_wangheart_rtmpfile_audio_FFmpegAudioHandle_encodePcmFile(JNIEnv *env, j
     const char *out_file = tarPath;                    //输出文件路径
 
     AVSampleFormat inSampleFmt = AV_SAMPLE_FMT_S16;
-    AVSampleFormat outSampleFmt = AV_SAMPLE_FMT_FLTP;
+    AVSampleFormat outSampleFmt = AV_SAMPLE_FMT_S16;
     const int sampleRate = 44100;
     const int channels = 2;
     const int sampleByte = 2;
@@ -68,8 +68,8 @@ Java_com_wangheart_rtmpfile_audio_FFmpegAudioHandle_encodePcmFile(JNIEnv *env, j
         av_log(NULL, AV_LOG_ERROR, "%s", "输出文件打开失败！\n");
         return -1;
     }
-    //pCodec = avcodec_find_encoder_by_name("libfdk_aac");
-    pCodec = avcodec_find_encoder(AV_CODEC_ID_AAC);
+    pCodec = avcodec_find_encoder_by_name("libfdk_aac");
+//    pCodec = avcodec_find_encoder(AV_CODEC_ID_AAC);
     if (!pCodec) {
         av_log(NULL, AV_LOG_ERROR, "%s", "没有找到合适的编码器！");
         return -1;
@@ -225,10 +225,12 @@ Java_com_wangheart_rtmpfile_audio_FFmpegAudioHandle_initAudio(JNIEnv *env, jobje
                                                               jstring url_) {
     av_log_set_callback(log_callback_null);
     const char *url = env->GetStringUTFChars(url_, 0);
-    av_log(NULL, AV_LOG_DEBUG, "start init %s", url);
+    av_log(NULL, AV_LOG_DEBUG, "%s", url);
     AVSampleFormat inSampleFmt = AV_SAMPLE_FMT_S16;
-    AVSampleFormat outSampleFmt = AV_SAMPLE_FMT_FLTP;
+    AVSampleFormat outSampleFmt = AV_SAMPLE_FMT_S16;
     const int sampleRate = 44100;
+    const int channels = 2;
+    const int sampleByte = 2;
     av_register_all();
     ret = avformat_alloc_output_context2(&audio_ofmc, NULL, NULL, url);
     if (ret < 0) {
@@ -239,20 +241,20 @@ Java_com_wangheart_rtmpfile_audio_FFmpegAudioHandle_initAudio(JNIEnv *env, jobje
     fmt = audio_ofmc->oformat;
     //Open output URL
     if (avio_open(&audio_ofmc->pb, url, AVIO_FLAG_READ_WRITE) < 0) {
-        loge("Failed to open output file!\n");
+        av_log(NULL, AV_LOG_ERROR, "%s", "输出文件打开失败！\n");
         return -1;
     }
     //寻找编码器
-    audio_codec = avcodec_find_encoder(AV_CODEC_ID_AAC);
-//    audio_codec = avcodec_find_decoder_by_name("libfdk_aac");
+    audio_codec = avcodec_find_encoder_by_name("libfdk_aac");
+//    audio_codec = avcodec_find_encoder(AV_CODEC_ID_AAC);
     if (!audio_codec) {
-        loge("Can not find encoder!\n");
+        av_log(NULL, AV_LOG_ERROR, "%s", "没有找到合适的编码器！");
         return -1;
     }
     //新建一个流
     audio_st = avformat_new_stream(audio_ofmc, audio_codec);
-    if (!audio_st) {
-        loge("avformat_new_stream error\n");
+    if (audio_st==NULL) {
+        av_log(NULL, AV_LOG_ERROR, "%s", "avformat_new_stream error");
         return -1;
     }
 
@@ -265,12 +267,15 @@ Java_com_wangheart_rtmpfile_audio_FFmpegAudioHandle_initAudio(JNIEnv *env, jobje
     audio_codec_ctx->channels = av_get_channel_layout_nb_channels(audio_codec_ctx->channel_layout);
     audio_codec_ctx->bit_rate = 64000;
 //    audio_codec_ctx->frame_size = 1024;
+
+    //输出格式信息
+    av_dump_format(audio_ofmc, 0, url, 1);
     ///2 音频重采样 上下文初始化
     pSwrCtx = swr_alloc_set_opts(pSwrCtx,
-                                 av_get_default_channel_layout(audio_codec_ctx->channels),
+                                 av_get_default_channel_layout(channels),
                                  outSampleFmt,
                                  sampleRate,//输出格式
-                                 av_get_default_channel_layout(audio_codec_ctx->channels),
+                                 av_get_default_channel_layout(channels),
                                  inSampleFmt,
                                  sampleRate, 0,
                                  0);//输入格式
@@ -280,8 +285,11 @@ Java_com_wangheart_rtmpfile_audio_FFmpegAudioHandle_initAudio(JNIEnv *env, jobje
     }
     ret = swr_init(pSwrCtx);
 
-    //输出格式信息
-    av_dump_format(audio_ofmc, 0, url, 1);
+    if (ret < 0) {
+        printAvError(ret);
+        loge("swr_init error");
+        return ret;
+    }
 
     //打开编码器
     ret = avcodec_open2(audio_codec_ctx, audio_codec, NULL);
@@ -295,15 +303,14 @@ Java_com_wangheart_rtmpfile_audio_FFmpegAudioHandle_initAudio(JNIEnv *env, jobje
     audio_frame = av_frame_alloc();
     audio_frame->nb_samples = audio_codec_ctx->frame_size;
     audio_frame->format = audio_codec_ctx->sample_fmt;
+    av_log(NULL, AV_LOG_DEBUG, "sample_rate:%d,frame_size:%d, channels:%d", sampleRate,
+           audio_frame->nb_samples, audio_frame->channels);
+
 
     //获取AVFrame数据的缓冲区大小
     audio_buf_size = av_samples_get_buffer_size(NULL, audio_codec_ctx->channels,
                                                 audio_codec_ctx->frame_size,
                                                 audio_codec_ctx->sample_fmt, 1);
-    av_log(NULL, AV_LOG_DEBUG, "FFmpeg参数:%d,%d,%d",
-           audio_buf_size,
-           audio_codec_ctx->frame_size,
-           audio_codec_ctx->channels);
     //为AVFrame设置缓冲区
     audio_frame_buf = (uint8_t *) av_malloc((size_t) audio_buf_size);
     ret = avcodec_fill_audio_frame(audio_frame, audio_codec_ctx->channels,
@@ -326,14 +333,9 @@ Java_com_wangheart_rtmpfile_audio_FFmpegAudioHandle_initAudio(JNIEnv *env, jobje
         return ret;
     }
 
-    if (ret < 0) {
-        printAvError(ret);
-        loge("swr_init error");
-        return ret;
-    }
     env->ReleaseStringUTFChars(url_, url);
     //返回AV_SAMPLE_FMT_S16格式pcm的每一帧的大小
-    ret = audio_frame->nb_samples * 2 * 2;
+    ret = audio_frame->nb_samples * channels * sampleByte;
     return ret;
 }
 

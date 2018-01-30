@@ -6,7 +6,6 @@ import android.media.AudioRecord;
 import android.media.MediaRecorder;
 import android.os.Bundle;
 import android.view.View;
-import android.widget.Toast;
 
 import com.wangheart.rtmpfile.audio.AudioBuffer;
 import com.wangheart.rtmpfile.audio.FFmpegAudioHandle;
@@ -23,7 +22,6 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.util.Date;
 
 /**
  * Author : eric
@@ -98,7 +96,8 @@ public class AudioRecordFFmpegActivity extends Activity {
     }
 
     public void btnTest(View view) {
-        final File filePcm = new File(FileUtil.getMainDir(), "AudioRecordFFmpegActivity.pcm");
+        final File filePcm = new File(FileUtil.getMainDir(), "tdjm.pcm");
+//        final File filePcm = new File(FileUtil.getMainDir(), "AudioRecordFFmpegActivity.pcm");
         if (!filePcm.exists()) {
             LogUtils.d("AudioRecordFFmpegActivity.pcm is not exist");
         }
@@ -106,7 +105,7 @@ public class AudioRecordFFmpegActivity extends Activity {
             @Override
             public void run() {
                 InputStream in = null;
-                int readSize = FFmpegAudioHandle.getInstance().initAudio(FileUtil.getMainDir() + "/record_ffmpeg.aac");
+                int readSize = FFmpegAudioHandle.getInstance().initAudio(FileUtil.getMainDir() + "/tdjm.aac");
                 if (readSize <= 0) {
                     LogUtils.e("init audio error ");
                     return;
