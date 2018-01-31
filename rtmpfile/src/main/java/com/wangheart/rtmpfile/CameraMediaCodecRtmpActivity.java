@@ -73,6 +73,7 @@ public class CameraMediaCodecRtmpActivity extends Activity implements SurfaceHol
     ExecutorService pushExecutor = Executors.newSingleThreadExecutor();
 
     private void init() {
+        FFmpegHandle.init(this);
         FFmpegHandle.getInstance().initVideo(url,WIDTH,HEIGHT);
         sv = findViewById(R.id.sv);
         initMediaCodec();
@@ -103,7 +104,6 @@ public class CameraMediaCodecRtmpActivity extends Activity implements SurfaceHol
             params.setFocusMode(Camera.Parameters.FOCUS_MODE_CONTINUOUS_VIDEO);
         }
         CameraInterface.getInstance().resetParams(params);
-        FFmpegHandle.init(this);
         mHolder = sv.getHolder();
         mHolder.addCallback(this);
 
