@@ -42,6 +42,7 @@ public class MainActivity extends Activity {
 
     private void initData() {
         mPermissionsChecker = new PermissionsChecker(this);
+        //读取FFmpeg的配置信息
         String content = FFmpegHandle.getInstance().getAvcodecConfiguration();
         if (!TextUtils.isEmpty(content)) {
             tvCodecInfo.setText(content.replace("--", "\n--"));
@@ -54,7 +55,7 @@ public class MainActivity extends Activity {
      * @param view
      */
     public void btnFFmpegPushFile(View view) {
-        Intent intent = new Intent(this, FFmpegPushFileRtmpActivity.class);
+        Intent intent = new Intent(this, VideoFileRtmpFFmpegActivity.class);
         startActivity(intent);
     }
 
@@ -74,7 +75,7 @@ public class MainActivity extends Activity {
      * @param view
      */
     public void btnMediaCodec(View view) {
-        Intent intent = new Intent(this, CameraMediaCodecActivity.class);
+        Intent intent = new Intent(this, CameraMediaCodecFileActivity.class);
         startActivity(intent);
     }
 
@@ -84,7 +85,7 @@ public class MainActivity extends Activity {
      * @param view
      */
     public void btmRtmpdumpFile(View view) {
-        startActivity(new Intent(this, RtmpDumpFileActivity.class));
+        startActivity(new Intent(this, VideoFileRtmpRtmpDumpActivity.class));
     }
 
     /**
@@ -97,14 +98,29 @@ public class MainActivity extends Activity {
         startActivity(intent);
     }
 
+    /**
+     * 转换音频文件格式
+     *
+     * @param view
+     */
     public void btnAudioFormatChange(View view) {
-        startActivity(new Intent(this, AudioCodecActivity.class));
+        startActivity(new Intent(this, AudioFormatChangeFFmpegActivity.class));
     }
 
+    /**
+     * 音频采集并使用MediaCodec编码
+     *
+     * @param view
+     */
     public void btnAudioRecord(View view) {
-        startActivity(new Intent(this, AudioRecordActivity.class));
+        startActivity(new Intent(this, AudioRecordMediaCodecActivity.class));
     }
 
+    /**
+     * 音频采集并使用FFmpeg编码
+     *
+     * @param view
+     */
     public void btnAudioRecordFFmpeg(View view) {
         startActivity(new Intent(this, AudioRecordFFmpegActivity.class));
     }

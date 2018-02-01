@@ -13,6 +13,7 @@ import android.view.SurfaceHolder;
 import android.view.View;
 import android.widget.Toast;
 
+import com.wangheart.rtmpfile.camera.CameraInterface;
 import com.wangheart.rtmpfile.ffmpeg.FFmpegHandle;
 import com.wangheart.rtmpfile.flv.FlvPacker;
 import com.wangheart.rtmpfile.flv.Packer;

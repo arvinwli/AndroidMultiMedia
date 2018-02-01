@@ -18,14 +18,14 @@
             </intent-filter>
         </activity>
         <activity android:name=".CameraFFmpegPushRtmpActivity" />
-        <activity android:name=".FFmpegPushFileRtmpActivity" />
-        <activity android:name=".CameraMediaCodecActivity" />
+        <activity android:name=".VideoFileRtmpFFmpegActivity" />
+        <activity android:name=".CameraMediaCodecFileActivity" />
         <activity android:name=".CameraMediaCodecRtmpActivity" />
-        <activity android:name=".AudioCodecActivity" />
+        <activity android:name=".AudioFormatChangeFFmpegActivity" />
         <activity android:name=".PermissionsActivity" />
-        <activity android:name=".AudioRecordActivity" />
+        <activity android:name=".AudioRecordMediaCodecActivity" />
         <activity android:name=".AudioRecordFFmpegActivity" />
-        <activity android:name=".RtmpDumpFileActivity" />
+        <activity android:name=".VideoFileRtmpRtmpDumpActivity" />
     </application>
 
     <uses-permission android:name="android.permission.INTERNET" />

@@ -1,4 +1,4 @@
-package com.wangheart.rtmpfile;
+package com.wangheart.rtmpfile.camera;
 
 import android.app.Activity;
 import android.content.Context;

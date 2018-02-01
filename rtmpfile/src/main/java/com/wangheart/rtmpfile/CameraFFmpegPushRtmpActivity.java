@@ -8,6 +8,7 @@ import android.view.SurfaceHolder;
 import android.view.View;
 import android.widget.FrameLayout;
 
+import com.wangheart.rtmpfile.camera.CameraInterface;
 import com.wangheart.rtmpfile.ffmpeg.FFmpegHandle;
 import com.wangheart.rtmpfile.utils.FileUtil;
 import com.wangheart.rtmpfile.utils.LogUtils;

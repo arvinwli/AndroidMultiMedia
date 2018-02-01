@@ -8,14 +8,14 @@ import android.media.MediaCodecInfo;
 import android.media.MediaCodecList;
 import android.media.MediaFormat;
 import android.os.Bundle;
-import android.os.Environment;
 import android.view.SurfaceHolder;
 import android.view.View;
 import android.widget.Toast;
 
-import com.wangheart.rtmpfile.ffmpeg.FFmpegHandle;
+import com.wangheart.rtmpfile.camera.CameraInterface;
 import com.wangheart.rtmpfile.flv.FlvPacker;
 import com.wangheart.rtmpfile.flv.Packer;
+import com.wangheart.rtmpfile.utils.FileUtil;
 import com.wangheart.rtmpfile.utils.IOUtils;
 import com.wangheart.rtmpfile.utils.LogUtils;
 import com.wangheart.rtmpfile.view.MySurfaceView;
@@ -40,12 +40,11 @@ import java.util.concurrent.Executors;
  * Modified :
  */
 
-public class CameraMediaCodecActivity extends Activity implements SurfaceHolder.Callback {
+public class CameraMediaCodecFileActivity extends Activity implements SurfaceHolder.Callback {
     private MySurfaceView sv;
     private final int WIDTH = 480;
     private final int HEIGHT = 320;
     private SurfaceHolder mHolder;
-    private String url = "rtmp://192.168.31.127/live/test";
     //采集到每帧数据时间
     long previewTime = 0;
     //每帧开始编码时间
@@ -58,7 +57,6 @@ public class CameraMediaCodecActivity extends Activity implements SurfaceHolder.
     private StreamIt mStreamIt;
     private MediaCodec mMediaCodec;
     private static final String VCODEC_MIME = "video/avc";
-    private final String DATA_DIR = Environment.getExternalStorageDirectory() + File.separator + "AndroidVideo";
     private FlvPacker mFlvPacker;
     private final int FRAME_RATE = 15;
     private OutputStream mOutStream;
@@ -71,7 +69,6 @@ public class CameraMediaCodecActivity extends Activity implements SurfaceHolder.
     }
 
     private void init() {
-        FFmpegHandle.getInstance().initVideo(url,WIDTH,HEIGHT);
         sv = findViewById(R.id.sv);
         initMediaCodec();
         mFlvPacker = new FlvPacker();
@@ -148,7 +145,6 @@ public class CameraMediaCodecActivity extends Activity implements SurfaceHolder.
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        FFmpegHandle.getInstance().close();
         CameraInterface.getInstance().releaseCamera();
     }
 
@@ -170,7 +166,7 @@ public class CameraMediaCodecActivity extends Activity implements SurfaceHolder.
     @Override
     public void surfaceCreated(SurfaceHolder holder) {
         mFlvPacker.start();
-        mOutStream = IOUtils.open(DATA_DIR + File.separator + "/easy.flv", true);
+        mOutStream = IOUtils.open(FileUtil.getMainDir() + File.separator + "/CameraMediaCodecFileActivity.flv", true);
         CameraInterface.getInstance().startPreview(mHolder, mStreamIt);
 
     }

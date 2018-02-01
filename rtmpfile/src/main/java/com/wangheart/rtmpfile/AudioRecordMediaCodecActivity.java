@@ -33,7 +33,7 @@ import java.util.concurrent.ArrayBlockingQueue;
  * Modified :
  */
 
-public class AudioRecordActivity extends Activity {
+public class AudioRecordMediaCodecActivity extends Activity {
     private AudioRecord mAudioRecord;
     private int mAudioSampleRate;
     private int mAudioChanelCount;

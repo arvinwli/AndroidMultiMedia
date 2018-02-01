@@ -20,7 +20,7 @@ import java.io.File;
  * Modified :
  */
 
-public class RtmpDumpFileActivity extends Activity {
+public class VideoFileRtmpRtmpDumpActivity extends Activity {
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);

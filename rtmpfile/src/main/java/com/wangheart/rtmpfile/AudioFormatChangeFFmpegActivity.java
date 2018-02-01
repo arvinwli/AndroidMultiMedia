@@ -22,7 +22,7 @@ import java.text.NumberFormat;
  * Modified :
  */
 
-public class AudioCodecActivity extends Activity {
+public class AudioFormatChangeFFmpegActivity extends Activity {
     private TextView tvInfo;
 
     @Override
