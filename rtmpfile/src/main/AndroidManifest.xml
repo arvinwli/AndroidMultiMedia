@@ -24,6 +24,7 @@
         <activity android:name=".PermissionsActivity" />
         <activity android:name=".AudioRecordActivity" />
         <activity android:name=".AudioRecordFFmpegActivity" />
+        <activity android:name=".RtmpDumpFileActivity" />
     </application>
 
     <uses-permission android:name="android.permission.INTERNET" />

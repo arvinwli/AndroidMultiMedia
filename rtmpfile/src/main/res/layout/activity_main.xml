@@ -13,50 +13,41 @@
         android:padding="15dp">
 
         <Button
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
+            style="@style/BtnMain"
             android:onClick="btnFFmpegPushFile"
-            android:text="FFmpeg推送文件RTMP流" />
+            android:text="推送文件RTMP流（FFmpeg）" />
+        <Button
+            style="@style/BtnMain"
+            android:onClick="btmRtmpdumpFile"
+            android:text="推送FLV文件RTMP流(librmtp)" />
 
         <Button
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
+            style="@style/BtnMain"
             android:onClick="btnCameraFFmpeg"
-            android:text="开启摄像头进行视频编码(FFmpeg)" />
+            android:text="开启摄像头进行视频编码(FFmpeg),输出到文件/RTMP" />
 
         <Button
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
+            style="@style/BtnMain"
             android:onClick="btnMediaCodec"
             android:text="开启摄像头进行视频编码(MediaCodec)，存到flv文件" />
 
         <Button
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:onClick="btmRtmpdumpFile"
-            android:text="解析FLV文件通过librmtp推流" />
-
-        <Button
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
+            style="@style/BtnMain"
             android:onClick="btnMediaCodecRtmp"
             android:text="开启摄像头进行视频编码(MediaCodec)，RTMP推流" />
 
         <Button
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
+            style="@style/BtnMain"
             android:onClick="btnAudioFormatChange"
             android:text="音频格式转换(MediaCodec)" />
 
         <Button
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
+            style="@style/BtnMain"
             android:onClick="btnAudioRecord"
-            android:text="录音AAC编码" />
+            android:text="录音AAC编码(MediaCodec)" />
 
         <Button
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
+            style="@style/BtnMain"
             android:onClick="btnAudioRecordFFmpeg"
             android:text="录音AAC编码（FFmpeg）" />
 
@@ -64,7 +55,6 @@
             android:id="@+id/tv_codec_info"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Hello World!"
             android:textColor="#000000"
             android:textSize="20sp" />
     </LinearLayout>

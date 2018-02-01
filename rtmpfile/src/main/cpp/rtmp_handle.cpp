@@ -82,6 +82,17 @@ int ReadTime(uint32_t *utime, FILE *fp) {
     return 1;
 }
 
+void logCallback(int logLevel, const char *msg, va_list args) {
+    char log[1024];
+    vsprintf(log, msg, args);
+    if (logLevel == RTMP_LOGERROR) {
+        __android_log_write(ANDROID_LOG_ERROR, "eric", log);
+    } else if (logLevel == RTMP_LOGWARNING) {
+        __android_log_write(ANDROID_LOG_WARN, "eric", log);
+    } else {
+        __android_log_write(ANDROID_LOG_DEBUG, "eric", log);
+    }
+}
 
 
 /*
@@ -94,6 +105,7 @@ int ReadTime(uint32_t *utime, FILE *fp) {
 
 //Publish using RTMP_SendPacket()
 int publish_using_packet(const char *path) {
+    RTMP_LogSetCallback(logCallback);
     RTMP *rtmp = NULL;
     RTMPPacket *packet = NULL;
     uint32_t start_time = 0;
@@ -185,8 +197,7 @@ int publish_using_packet(const char *path) {
         pre_frame_time = timestamp;
         long delt = RTMP_GetTime() - start_time;
         printf("%ld,%ld\n", pre_frame_time, (RTMP_GetTime() - start_time));
-        __android_log_print(ANDROID_LOG_WARN, "eric",
-                            "%ld,%ld", pre_frame_time, (RTMP_GetTime() - start_time));
+        RTMP_Log(RTMP_LOGDEBUG, "%ld,%ld", pre_frame_time, (RTMP_GetTime() - start_time));
         if (delt < pre_frame_time) {
             usleep((pre_frame_time - delt) * 1000);
         }
