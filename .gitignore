@@ -11,3 +11,5 @@ gradle
 gradlew
 gradlew.bat
 .idea
+/rtmpfile/%APPDATA%
+%APPDATA%
