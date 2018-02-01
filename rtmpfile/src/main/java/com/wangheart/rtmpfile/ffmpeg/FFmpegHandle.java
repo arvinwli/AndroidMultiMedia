@@ -1,7 +1,5 @@
 package com.wangheart.rtmpfile.ffmpeg;
 
-import android.content.Context;
-
 /**
  * Author : eric
  * CreateDate : 2017/11/1  15:32
@@ -14,13 +12,9 @@ import android.content.Context;
 public class FFmpegHandle {
     private static FFmpegHandle mInstance;
 
-    public static void init(Context context) {
-        mInstance = new FFmpegHandle();
-    }
-
-    public static FFmpegHandle getInstance() {
+    public synchronized static FFmpegHandle getInstance() {
         if (mInstance == null) {
-            throw new RuntimeException("FFmpegHandle must init fist");
+            mInstance = new FFmpegHandle();
         }
         return mInstance;
     }

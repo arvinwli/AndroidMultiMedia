@@ -40,7 +40,6 @@ public class FFmpegPushFileRtmpActivity extends Activity {
 
 
     private void initData() {
-        FFmpegHandle.init(this);
         int res = FFmpegHandle.getInstance().setCallback(new PushCallback() {
             @Override
             public void videoCallback(final long pts, final long dts, final long duration, final long index) {

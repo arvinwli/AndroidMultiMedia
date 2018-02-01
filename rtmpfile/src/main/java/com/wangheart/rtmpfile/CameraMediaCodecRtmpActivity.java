@@ -73,7 +73,6 @@ public class CameraMediaCodecRtmpActivity extends Activity implements SurfaceHol
     ExecutorService pushExecutor = Executors.newSingleThreadExecutor();
 
     private void init() {
-        FFmpegHandle.init(this);
         FFmpegHandle.getInstance().initVideo(url,WIDTH,HEIGHT);
         sv = findViewById(R.id.sv);
         initMediaCodec();

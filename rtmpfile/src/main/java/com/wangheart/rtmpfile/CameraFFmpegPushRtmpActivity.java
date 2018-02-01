@@ -4,13 +4,9 @@ import android.app.Activity;
 import android.graphics.ImageFormat;
 import android.hardware.Camera;
 import android.os.Bundle;
-import android.util.DisplayMetrics;
-import android.util.Size;
-import android.view.Surface;
 import android.view.SurfaceHolder;
 import android.view.View;
 import android.widget.FrameLayout;
-import android.widget.RelativeLayout;
 
 import com.wangheart.rtmpfile.ffmpeg.FFmpegHandle;
 import com.wangheart.rtmpfile.utils.FileUtil;
@@ -96,7 +92,6 @@ public class CameraFFmpegPushRtmpActivity extends Activity implements SurfaceHol
         });
 
         CameraInterface.getInstance().resetParams(params);
-        FFmpegHandle.init(this);
         mHolder = sv.getHolder();
         mHolder.addCallback(this);
         FFmpegHandle.getInstance().initVideo(url, WIDTH, HEIGHT);

@@ -96,7 +96,6 @@ public class CameraMediaCodecActivity extends Activity implements SurfaceHolder.
             params.setFocusMode(Camera.Parameters.FOCUS_MODE_CONTINUOUS_VIDEO);
         }
         CameraInterface.getInstance().resetParams(params);
-        FFmpegHandle.init(this);
         mHolder = sv.getHolder();
         mHolder.addCallback(this);
 

@@ -46,7 +46,6 @@ public class MainActivity extends Activity {
 
 
     private void initData() {
-        FFmpegHandle.init(this);
         mPermissionsChecker = new PermissionsChecker(this);
         String content = FFmpegHandle.getInstance().getAvcodecConfiguration();
         if (!TextUtils.isEmpty(content)) {
