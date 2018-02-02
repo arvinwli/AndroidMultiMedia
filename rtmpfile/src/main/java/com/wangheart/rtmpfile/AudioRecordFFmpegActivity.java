@@ -6,6 +6,7 @@ import android.media.AudioRecord;
 import android.media.MediaRecorder;
 import android.os.Bundle;
 import android.view.View;
+import android.widget.TextView;
 
 import com.wangheart.rtmpfile.audio.AudioBuffer;
 import com.wangheart.rtmpfile.audio.FFmpegAudioHandle;
@@ -33,6 +34,7 @@ import java.io.OutputStream;
  */
 
 public class AudioRecordFFmpegActivity extends Activity {
+    private TextView tvInfo;
     private AudioRecord mAudioRecord;
     private int mAudioSampleRate;
     private int mAudioChanelCount;
@@ -82,13 +84,15 @@ public class AudioRecordFFmpegActivity extends Activity {
 
     /**
      * 编码tdjm.pcm文件为tdjm.aac
+     *
      * @param view
      */
     public void btnEncodePcmFile(View view) {
+        final String pcmFileName = "tdjm.pcm";
         new Thread(new Runnable() {
             @Override
             public void run() {
-                FFmpegAudioHandle.getInstance().encodePcmFile(FileUtil.getMainDir() + "/tdjm.pcm",
+                FFmpegAudioHandle.getInstance().encodePcmFile(FileUtil.getMainDir() + "/" + pcmFileName,
 //                FFmpegAudioHandle.getInstance().encodePcmFile(FileUtil.getMainDir() + "/AudioRecordFFmpegActivity.pcm",
                         FileUtil.getMainDir() + "/tdjm.aac");
             }
@@ -96,10 +100,12 @@ public class AudioRecordFFmpegActivity extends Activity {
     }
 
     public void btnTest(View view) {
-        final File filePcm = new File(FileUtil.getMainDir(), "tdjm.pcm");
+        final String pcmFileName = "tdjm.pcm";
+        final File filePcm = new File(FileUtil.getMainDir(), pcmFileName);
 //        final File filePcm = new File(FileUtil.getMainDir(), "AudioRecordFFmpegActivity.pcm");
         if (!filePcm.exists()) {
-            LogUtils.d("AudioRecordFFmpegActivity.pcm is not exist");
+            LogUtils.d(filePcm + " is not exist");
+            return;
         }
         new Thread(new Runnable() {
             @Override
@@ -110,12 +116,12 @@ public class AudioRecordFFmpegActivity extends Activity {
                     LogUtils.e("init audio error ");
                     return;
                 }
-                LogUtils.d("readSize" + ret);
-                audioBuffer = new AudioBuffer(ret);
+                LogUtils.d("readSize" + readSize);
+                audioBuffer = new AudioBuffer(readSize);
                 try {
                     byte[] buff = new byte[readSize];
                     in = new FileInputStream(filePcm);
-                    while (in.read(buff) >= ret) {
+                    while (in.read(buff) >= readSize) {
                         FFmpegAudioHandle.getInstance().encodeAudio(buff);
                     }
                 } catch (FileNotFoundException e) {

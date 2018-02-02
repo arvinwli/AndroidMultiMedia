@@ -102,6 +102,11 @@ Java_com_wangheart_rtmpfile_audio_FFmpegAudioHandle_encodePcmFile(JNIEnv *env, j
         return -1;
     }
     ret = swr_init(asc);
+    if (ret < 0) {
+        printAvError(ret);
+        loge("swr_init error");
+        return ret;
+    }
 
     if (avcodec_open2(pCodecCtx, pCodec, NULL) < 0) {
         av_log(NULL, AV_LOG_ERROR, "%s", "编码器打开失败！\n");
@@ -143,37 +148,44 @@ Java_com_wangheart_rtmpfile_audio_FFmpegAudioHandle_encodePcmFile(JNIEnv *env, j
             break;
         }
         frame->pts = apts;
+        //计算pts
         AVRational av;
         av.num = 1;
         av.den = sampleRate;
         apts += av_rescale_q(frame->nb_samples, av, pCodecCtx->time_base);
-        int got_frame = 0;
         //重采样源数据
         const uint8_t *indata[AV_NUM_DATA_POINTERS] = {0};
         indata[0] = (uint8_t *) buf;
-        int len = swr_convert(asc, frame->data, frame->nb_samples, //输出参数，输出存储地址和样本数量
-                              indata, frame->nb_samples
+        ret = swr_convert(asc, frame->data, frame->nb_samples, //输出参数，输出存储地址和样本数量
+                          indata, frame->nb_samples
         );
+        if (ret < 0) {
+            av_log(NULL, AV_LOG_ERROR, "swr_convert error");
+            return ret;
+        }
         //编码
         ret = avcodec_send_frame(pCodecCtx, frame);
         if (ret < 0) {
-            av_log(NULL, AV_LOG_ERROR, "%s", "avcodec_send_frame error\n");
+            av_log(NULL, AV_LOG_ERROR, "avcodec_send_frame error\n");
+            return ret;
         }
-
+        //接受编码后的数据
         ret = avcodec_receive_packet(pCodecCtx, &pkt);
         if (ret < 0) {
-            av_log(NULL, AV_LOG_ERROR, "%s", "avcodec_receive_packet！error \n");
+            av_log(NULL, AV_LOG_ERROR, "avcodec_receive_packet！error \n");
             printAvError(ret);
             continue;
         }
+        //pts dts duration转换为以audio_st->time_base为基准的值。
         pkt.stream_index = audio_st->index;
-        av_log(NULL, AV_LOG_DEBUG, "第%d帧", i);
         pkt.pts = av_rescale_q(pkt.pts, pCodecCtx->time_base, audio_st->time_base);
         pkt.dts = av_rescale_q(pkt.dts, pCodecCtx->time_base, audio_st->time_base);
         pkt.duration = av_rescale_q(pkt.duration, pCodecCtx->time_base, audio_st->time_base);
         ret = av_write_frame(pFormatCtx, &pkt);
         if (ret < 0) {
             av_log(NULL, AV_LOG_ERROR, "av_write_frame error!");
+        } else {
+            av_log(NULL, AV_LOG_DEBUG, " 第%d帧 encode success", i);
         }
         av_packet_unref(&pkt);
     }
@@ -187,7 +199,7 @@ Java_com_wangheart_rtmpfile_audio_FFmpegAudioHandle_encodePcmFile(JNIEnv *env, j
     avformat_free_context(pFormatCtx);
 
     fclose(in_file);
-    av_log(NULL, AV_LOG_DEBUG, "success !");
+    av_log(NULL, AV_LOG_DEBUG, "finish !");
     env->ReleaseStringUTFChars(souPath_, souPath);
     env->ReleaseStringUTFChars(tarPath_, tarPath);
     return 0;
@@ -253,7 +265,7 @@ Java_com_wangheart_rtmpfile_audio_FFmpegAudioHandle_initAudio(JNIEnv *env, jobje
     }
     //新建一个流
     audio_st = avformat_new_stream(audio_ofmc, audio_codec);
-    if (audio_st==NULL) {
+    if (audio_st == NULL) {
         av_log(NULL, AV_LOG_ERROR, "%s", "avformat_new_stream error");
         return -1;
     }
