@@ -9,6 +9,7 @@ import android.graphics.SurfaceTexture;
 import android.hardware.Camera;
 import android.hardware.Camera.PictureCallback;
 import android.hardware.Camera.ShutterCallback;
+import android.util.Size;
 import android.view.SurfaceHolder;
 
 import com.wangheart.rtmpfile.utils.FileUtil;
@@ -17,6 +18,7 @@ import com.wangheart.rtmpfile.utils.LogUtils;
 import com.wangheart.rtmpfile.utils.PhoneUtils;
 
 import java.io.IOException;
+import java.util.List;
 
 /**
  * Author : eric
@@ -63,9 +65,30 @@ public class CameraInterface {
     }
 
     public Camera.Parameters getParams() {
-        if (mCamera != null)
-            return mCamera.getParameters();
-        else return null;
+        if (mCamera != null) {
+            Camera.Parameters params = mCamera.getParameters();
+            List<Camera.Size> pictureSize = params.getSupportedPictureSizes();
+            if (pictureSize != null) {
+                for (Camera.Size size : pictureSize) {
+                    LogUtils.d("SupportedPictureSize width:" + size.width + ",height:" + size.height);
+                }
+            }
+            List<Camera.Size> previewSize = params.getSupportedPreviewSizes();
+            if (previewSize != null) {
+                for (Camera.Size size : previewSize) {
+                    LogUtils.d("SupportedPreviewSize width:" + size.width + ",height:" + size.height);
+                }
+            }
+            List<Integer> pictureFormats = params.getSupportedPictureFormats();
+            if (previewSize != null) {
+                LogUtils.d("SupportedPictureFormats:" + pictureFormats);
+            }
+            List<Integer> previewFormats = params.getSupportedPreviewFormats();
+            if (previewSize != null) {
+                LogUtils.d("SupportedPreviewFormats:" + previewFormats);
+            }
+            return params;
+        } else return null;
     }
 
     public void resetParams(Camera.Parameters param) {

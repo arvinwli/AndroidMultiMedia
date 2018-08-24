@@ -5,12 +5,11 @@ import android.graphics.ImageFormat;
 import android.hardware.Camera;
 import android.media.MediaCodec;
 import android.media.MediaCodecInfo;
-import android.media.MediaCodecList;
 import android.media.MediaFormat;
 import android.os.Bundle;
 import android.view.SurfaceHolder;
 import android.view.View;
-import android.widget.Toast;
+import android.widget.FrameLayout;
 
 import com.wangheart.rtmpfile.camera.CameraInterface;
 import com.wangheart.rtmpfile.flv.FlvPacker;
@@ -18,6 +17,8 @@ import com.wangheart.rtmpfile.flv.Packer;
 import com.wangheart.rtmpfile.utils.FileUtil;
 import com.wangheart.rtmpfile.utils.IOUtils;
 import com.wangheart.rtmpfile.utils.LogUtils;
+import com.wangheart.rtmpfile.utils.PhoneUtils;
+import com.wangheart.rtmpfile.video.VideoComponent;
 import com.wangheart.rtmpfile.view.MySurfaceView;
 
 import org.jetbrains.annotations.Nullable;
@@ -26,7 +27,6 @@ import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
-import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -41,9 +41,12 @@ import java.util.concurrent.Executors;
  */
 
 public class CameraMediaCodecFileActivity extends Activity implements SurfaceHolder.Callback {
+    ExecutorService executor = Executors.newSingleThreadExecutor();
     private MySurfaceView sv;
-    private final int WIDTH = 480;
-    private final int HEIGHT = 320;
+    //默认视频宽度
+    private final int SUGGEST_PREVIEW_WIDTH=640;
+    private int videoWidth = 0;
+    private int videoHeight = 0;
     private SurfaceHolder mHolder;
     //采集到每帧数据时间
     long previewTime = 0;
@@ -54,12 +57,14 @@ public class CameraMediaCodecFileActivity extends Activity implements SurfaceHol
     //编码数量
     int encodeCount = 0;
     //采集数据回调
-    private StreamIt mStreamIt;
+    private PreviewFrameCallback mPreviewFrameCallback;
     private MediaCodec mMediaCodec;
     private static final String VCODEC_MIME = "video/avc";
     private FlvPacker mFlvPacker;
     private final int FRAME_RATE = 15;
     private OutputStream mOutStream;
+    //视频编码组件封装
+    private VideoComponent mVideoComponent;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -70,9 +75,12 @@ public class CameraMediaCodecFileActivity extends Activity implements SurfaceHol
 
     private void init() {
         sv = findViewById(R.id.sv);
+        mVideoComponent = new VideoComponent();
+        mPreviewFrameCallback = new PreviewFrameCallback();
+        initCamera();
         initMediaCodec();
         mFlvPacker = new FlvPacker();
-        mFlvPacker.initVideoParams(WIDTH, HEIGHT, FRAME_RATE);
+        mFlvPacker.initVideoParams(videoWidth, videoHeight, FRAME_RATE);
         mFlvPacker.setPacketListener(new Packer.OnPacketListener() {
             @Override
             public void onPacket(byte[] data, int packetType) {
@@ -80,39 +88,21 @@ public class CameraMediaCodecFileActivity extends Activity implements SurfaceHol
                 LogUtils.w(data.length + " " + packetType);
             }
         });
-        mStreamIt = new StreamIt();
-        CameraInterface.getInstance().openCamera(1);
-        Camera.Parameters params = CameraInterface.getInstance().getParams();
-        params.setPictureFormat(ImageFormat.YV12);
-        params.setPreviewFormat(ImageFormat.YV12);
-        params.setPictureSize(WIDTH, HEIGHT);
-        params.setPreviewSize(WIDTH, HEIGHT);
-        params.setPreviewFpsRange(15000, 20000);
-        List<String> focusModes = params.getSupportedFocusModes();
-        if (focusModes.contains("continuous-video")) {
-            params.setFocusMode(Camera.Parameters.FOCUS_MODE_CONTINUOUS_VIDEO);
-        }
-        CameraInterface.getInstance().resetParams(params);
-        mHolder = sv.getHolder();
-        mHolder.addCallback(this);
-
     }
 
     private void initMediaCodec() {
-        int bitrate = 2 * WIDTH * HEIGHT * FRAME_RATE / 20;
+        int bitrate = 2 * videoWidth * videoHeight * FRAME_RATE / 20;
         try {
-            MediaCodecInfo mediaCodecInfo = selectCodec(VCODEC_MIME);
+            MediaCodecInfo mediaCodecInfo = mVideoComponent.getSupportMediaCodecInfo(VCODEC_MIME);
             if (mediaCodecInfo == null) {
-                Toast.makeText(this, "mMediaCodec null", Toast.LENGTH_LONG).show();
                 throw new RuntimeException("mediaCodecInfo is Empty");
             }
-            LogUtils.w("MediaCodecInfo " + mediaCodecInfo.getName());
             mMediaCodec = MediaCodec.createByCodecName(mediaCodecInfo.getName());
-            MediaFormat mediaFormat = MediaFormat.createVideoFormat(VCODEC_MIME, WIDTH, HEIGHT);
+            MediaFormat mediaFormat = MediaFormat.createVideoFormat(VCODEC_MIME, videoWidth, videoHeight);
             mediaFormat.setInteger(MediaFormat.KEY_BIT_RATE, bitrate);
             mediaFormat.setInteger(MediaFormat.KEY_FRAME_RATE, FRAME_RATE);
             mediaFormat.setInteger(MediaFormat.KEY_COLOR_FORMAT,
-                    MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Planar);
+                    mVideoComponent.getSupportMediaCodecColorFormat(mediaCodecInfo));
             mediaFormat.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 1);
             mMediaCodec.configure(mediaFormat, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
             mMediaCodec.start();
@@ -120,26 +110,42 @@ public class CameraMediaCodecFileActivity extends Activity implements SurfaceHol
             e.printStackTrace();
         }
     }
-
-    private MediaCodecInfo selectCodec(String mimeType) {
-        int numCodecs = MediaCodecList.getCodecCount();
-        for (int i = 0; i < numCodecs; i++) {
-            MediaCodecInfo codecInfo = MediaCodecList.getCodecInfoAt(i);
-            //是否是编码器
-            if (!codecInfo.isEncoder()) {
-                continue;
-            }
-            String[] types = codecInfo.getSupportedTypes();
-            LogUtils.w(Arrays.toString(types));
-            for (String type : types) {
-                LogUtils.e("equal " + mimeType.equalsIgnoreCase(type));
-                if (mimeType.equalsIgnoreCase(type)) {
-                    LogUtils.e("codecInfo " + codecInfo.getName());
-                    return codecInfo;
-                }
-            }
+    private void initCamera(){
+        CameraInterface.getInstance().openCamera(0);
+        Camera.Parameters params = CameraInterface.getInstance().getParams();
+        //查找合适的预览尺寸
+        Camera.Size size= mVideoComponent.getSupportPreviewSize(params,SUGGEST_PREVIEW_WIDTH);
+        if(size==null){
+            throw new RuntimeException("not found support preview size");
         }
-        return null;
+        videoWidth=size.width;
+        videoHeight=480;
+        params.setPictureFormat(ImageFormat.JPEG);
+        params.setPreviewFormat(mVideoComponent.getSupportPreviewColorFormat(params));
+        params.setPictureSize(videoWidth, videoHeight);
+        params.setPreviewSize(videoWidth, videoHeight);
+        params.setPreviewFpsRange(15000, 20000);
+        List<String> focusModes = params.getSupportedFocusModes();
+        if (focusModes.contains("continuous-video")) {
+            params.setFocusMode(Camera.Parameters.FOCUS_MODE_CONTINUOUS_VIDEO);
+        }
+        CameraInterface.getInstance().adjustOrientation(this, new CameraInterface.OnOrientationChangeListener() {
+            @Override
+            public void onChange(int degree) {
+                FrameLayout.LayoutParams lp =
+                        (FrameLayout.LayoutParams) sv.getLayoutParams();
+                LogUtils.d(PhoneUtils.getWidth() + " " + PhoneUtils.getHeight());
+                if (degree == 90) {
+                    lp.height = PhoneUtils.getWidth() * videoWidth / videoHeight;
+                } else {
+                    lp.height = PhoneUtils.getWidth() * videoHeight / videoWidth;
+                }
+                sv.setLayoutParams(lp);
+            }
+        });
+        CameraInterface.getInstance().resetParams(params);
+        mHolder = sv.getHolder();
+        mHolder.addCallback(this);
     }
 
     @Override
@@ -152,7 +158,7 @@ public class CameraMediaCodecFileActivity extends Activity implements SurfaceHol
     protected void onResume() {
         super.onResume();
         if (mHolder != null) {
-            CameraInterface.getInstance().startPreview(mHolder, mStreamIt);
+            CameraInterface.getInstance().startPreview(mHolder, mPreviewFrameCallback);
         }
     }
 
@@ -167,7 +173,7 @@ public class CameraMediaCodecFileActivity extends Activity implements SurfaceHol
     public void surfaceCreated(SurfaceHolder holder) {
         mFlvPacker.start();
         mOutStream = IOUtils.open(FileUtil.getMainDir() + File.separator + "/CameraMediaCodecFileActivity.flv", true);
-        CameraInterface.getInstance().startPreview(mHolder, mStreamIt);
+        CameraInterface.getInstance().startPreview(mHolder, mPreviewFrameCallback);
 
     }
 
@@ -183,12 +189,8 @@ public class CameraMediaCodecFileActivity extends Activity implements SurfaceHol
         IOUtils.close(mOutStream);
     }
 
-    ExecutorService executor = Executors.newSingleThreadExecutor();
 
-    public void btnStart(View view) {
-    }
-
-    public class StreamIt implements Camera.PreviewCallback {
+    public class PreviewFrameCallback implements Camera.PreviewCallback {
         @Override
         public void onPreviewFrame(final byte[] data, Camera camera) {
             long endTime = System.currentTimeMillis();
@@ -207,17 +209,10 @@ public class CameraMediaCodecFileActivity extends Activity implements SurfaceHol
     }
 
 
-    private void flvPackage(byte[] buf) {
-        final int LENGTH = HEIGHT * WIDTH;
-        //YV12数据转化成COLOR_FormatYUV420Planar
-        LogUtils.d(LENGTH + "  " + (buf.length - LENGTH));
-        for (int i = LENGTH; i < (LENGTH + LENGTH / 4); i++) {
-            byte temp = buf[i];
-            buf[i] = buf[i + LENGTH / 4];
-            buf[i + LENGTH / 4] = temp;
-//            char x = 128;
-//            buf[i] = (byte) x;
-        }
+    private void flvPackage(byte[] bufSou) {
+        //编码格式转换
+        byte[] buf = mVideoComponent.convert(bufSou);
+
         ByteBuffer[] inputBuffers = mMediaCodec.getInputBuffers();
         ByteBuffer[] outputBuffers = mMediaCodec.getOutputBuffers();
         try {
