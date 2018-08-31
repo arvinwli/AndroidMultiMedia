@@ -12,4 +12,5 @@ import java.nio.ByteBuffer;
  */
 public interface EncodedDataCallback {
     void onAudioEncodedCallback(ByteBuffer byteBuffer, MediaCodec.BufferInfo bufferInfo);
+    void onVideoEncodedCallback(ByteBuffer byteBuffer, MediaCodec.BufferInfo bufferInfo);
 }

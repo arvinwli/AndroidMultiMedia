@@ -56,8 +56,6 @@ public class VideoCompoundFileActivity extends Activity implements SurfaceHolder
     private MySurfaceView sv;
     //建议的视频宽度，不超过这个宽度，自动寻找4：3的尺寸
     private final int SUGGEST_PREVIEW_WIDTH=640;
-    private int videoWidth = 0;
-    private int videoHeight = 0;
     private SurfaceHolder mHolder;
     //采集到每帧数据时间
     long previewTime = 0;
@@ -69,10 +67,7 @@ public class VideoCompoundFileActivity extends Activity implements SurfaceHolder
     int encodeCount = 0;
     //采集数据回调
     private PreviewFrameCallback mPreviewFrameCallback;
-    private MediaCodec mMediaCodec;
-    private static final String VCODEC_MIME = "video/avc";
     private FlvPacker mFlvPacker;
-    private final int FRAME_RATE = 15;
     private OutputStream mOutStream;
     //视频编码组件封装
     private VideoComponent mVideoComponent;
@@ -91,11 +86,13 @@ public class VideoCompoundFileActivity extends Activity implements SurfaceHolder
         mAudioComponent=new AudioComponent();
         mPreviewFrameCallback = new PreviewFrameCallback();
         initCamera();
-        initMediaCodec();
+        //VideoComponent must init after initCamera
+        mVideoComponent.init();
         mAudioComponent.init();
+        mVideoComponent.setEncodedDataCallback(this);
         mAudioComponent.setEncodedDataCallback(this);
         mFlvPacker = new FlvPacker();
-        mFlvPacker.initVideoParams(videoWidth, videoHeight, FRAME_RATE);
+        mFlvPacker.initVideoParams(mVideoComponent.getWidth(), mVideoComponent.getHeight(), mVideoComponent.getFrameRate());
         mFlvPacker.initAudioParams(mAudioComponent.getAudioSampleRate(),
                 mAudioComponent.getAudioFormat()*8,mAudioComponent.getAudioChanelCount()==2);
         mFlvPacker.setPacketListener(new Packer.OnPacketListener() {
@@ -117,26 +114,13 @@ public class VideoCompoundFileActivity extends Activity implements SurfaceHolder
         }
     }
 
-    private void initMediaCodec() {
-        int bitrate = 2 * videoWidth * videoHeight * FRAME_RATE / 20;
-        try {
-            MediaCodecInfo mediaCodecInfo = mVideoComponent.getSupportMediaCodecInfo(VCODEC_MIME);
-            if (mediaCodecInfo == null) {
-                throw new RuntimeException("mediaCodecInfo is Empty");
-            }
-            mMediaCodec = MediaCodec.createByCodecName(mediaCodecInfo.getName());
-            MediaFormat mediaFormat = MediaFormat.createVideoFormat(VCODEC_MIME, videoWidth, videoHeight);
-            mediaFormat.setInteger(MediaFormat.KEY_BIT_RATE, bitrate);
-            mediaFormat.setInteger(MediaFormat.KEY_FRAME_RATE, FRAME_RATE);
-            mediaFormat.setInteger(MediaFormat.KEY_COLOR_FORMAT,
-                    mVideoComponent.getSupportMediaCodecColorFormat(mediaCodecInfo));
-            mediaFormat.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 1);
-            mMediaCodec.configure(mediaFormat, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
-            mMediaCodec.start();
-        } catch (IOException e) {
-            e.printStackTrace();
+    @Override
+    public void onVideoEncodedCallback(ByteBuffer byteBuffer, MediaCodec.BufferInfo bufferInfo) {
+        if(mFlvPacker!=null) {
+            mFlvPacker.onVideoData(byteBuffer, bufferInfo);
         }
     }
+
     private void initCamera(){
         CameraInterface.getInstance().openCamera(0);
         Camera.Parameters params = CameraInterface.getInstance().getParams();
@@ -145,12 +129,13 @@ public class VideoCompoundFileActivity extends Activity implements SurfaceHolder
         if(size==null){
             throw new RuntimeException("not found support preview size");
         }
-        videoWidth=size.width;
-        videoHeight=size.height;
+        //设置视频尺寸
+        mVideoComponent.setWidth(size.width);
+        mVideoComponent.setHeight(size.height);
         params.setPictureFormat(ImageFormat.JPEG);
         params.setPreviewFormat(mVideoComponent.getSupportPreviewColorFormat(params));
 //        params.setPictureSize(videoWidth, videoHeight);
-        params.setPreviewSize(videoWidth, videoHeight);
+        params.setPreviewSize(mVideoComponent.getWidth(), mVideoComponent.getHeight());
         params.setPreviewFpsRange(15000, 20000);
         List<String> focusModes = params.getSupportedFocusModes();
         if (focusModes.contains("continuous-video")) {
@@ -163,9 +148,9 @@ public class VideoCompoundFileActivity extends Activity implements SurfaceHolder
                         (FrameLayout.LayoutParams) sv.getLayoutParams();
                 LogUtils.d(PhoneUtils.getWidth() + " " + PhoneUtils.getHeight());
                 if (degree == 90) {
-                    lp.height = PhoneUtils.getWidth() * videoWidth / videoHeight;
+                    lp.height = PhoneUtils.getWidth() * mVideoComponent.getWidth() / mVideoComponent.getHeight();
                 } else {
-                    lp.height = PhoneUtils.getWidth() * videoHeight / videoWidth;
+                    lp.height = PhoneUtils.getWidth() * mVideoComponent.getWidth() / mVideoComponent.getHeight();
                 }
                 sv.setLayoutParams(lp);
             }
@@ -228,7 +213,7 @@ public class VideoCompoundFileActivity extends Activity implements SurfaceHolder
                 @Override
                 public void run() {
                     encodeTime = System.currentTimeMillis();
-                    flvPackage(data);
+                    mVideoComponent.encode(data);
                     LogUtils.w("编码第:" + (encodeCount++) + "帧，耗时:" + (System.currentTimeMillis() - encodeTime));
                 }
             });
@@ -239,40 +224,4 @@ public class VideoCompoundFileActivity extends Activity implements SurfaceHolder
     }
 
 
-    private void flvPackage(byte[] bufSou) {
-        //编码格式转换
-        byte[] buf = mVideoComponent.convert(bufSou);
-
-        ByteBuffer[] inputBuffers = mMediaCodec.getInputBuffers();
-        ByteBuffer[] outputBuffers = mMediaCodec.getOutputBuffers();
-        try {
-            //查找可用的的input buffer用来填充有效数据
-            int bufferIndex = mMediaCodec.dequeueInputBuffer(-1);
-            if (bufferIndex >= 0) {
-                //数据放入到inputBuffer中
-                ByteBuffer inputBuffer = inputBuffers[bufferIndex];
-                inputBuffer.clear();
-                inputBuffer.put(buf, 0, buf.length);
-                //把数据传给编码器并进行编码
-                mMediaCodec.queueInputBuffer(bufferIndex, 0,
-                        inputBuffers[bufferIndex].position(),
-                        System.nanoTime() / 1000, 0);
-                MediaCodec.BufferInfo bufferInfo = new MediaCodec.BufferInfo();
-
-                //输出buffer出队，返回成功的buffer索引。
-                int outputBufferIndex = mMediaCodec.dequeueOutputBuffer(bufferInfo, 0);
-                while (outputBufferIndex >= 0) {
-                    ByteBuffer outputBuffer = outputBuffers[outputBufferIndex];
-                    //进行flv封装
-                    mFlvPacker.onVideoData(outputBuffer, bufferInfo);
-                    mMediaCodec.releaseOutputBuffer(outputBufferIndex, false);
-                    outputBufferIndex = mMediaCodec.dequeueOutputBuffer(bufferInfo, 0);
-                }
-            } else {
-                LogUtils.w("No buffer available !");
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
 }
