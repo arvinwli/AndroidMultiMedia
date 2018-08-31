@@ -50,7 +50,10 @@
             style="@style/BtnMain"
             android:onClick="btnAudioRecordFFmpeg"
             android:text="录音AAC编码（FFmpeg）" />
-
+        <Button
+            style="@style/BtnMain"
+            android:onClick="btnVideoCompoundFile"
+            android:text="音视频合成，存到flv文件" />
         <TextView
             android:id="@+id/tv_codec_info"
             android:layout_width="wrap_content"

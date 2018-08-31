@@ -26,6 +26,7 @@
         <activity android:name=".AudioRecordMediaCodecActivity" />
         <activity android:name=".AudioRecordFFmpegActivity" />
         <activity android:name=".VideoFileRtmpRtmpDumpActivity" />
+        <activity android:name=".VideoCompoundFileActivity" />
     </application>
 
     <uses-permission android:name="android.permission.INTERNET" />

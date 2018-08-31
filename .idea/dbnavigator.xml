@@ -132,6 +132,7 @@
     <dataset-grid-settings>
       <general>
         <enable-zooming value="true" />
+        <enable-column-tooltip value="true" />
       </general>
       <sorting>
         <nulls-first value="true" />
@@ -192,6 +193,8 @@
       <general>
         <show-object-navigation-gutter value="false" />
         <show-spec-declaration-navigation-gutter value="true" />
+        <enable-spellchecking value="true" />
+        <enable-reference-spellchecking value="false" />
       </general>
       <confirmations>
         <save-changes value="false" />

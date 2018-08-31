@@ -13,7 +13,7 @@ import java.util.List;
 /**
  * @author Arvin
  * @date 2018/8/22
- * @e-mail arvinli@pacewear.com
+ * @e-mail ericli_wang@163.com
  * @description
  */
 public class VideoComponent {
@@ -50,11 +50,16 @@ public class VideoComponent {
         return this.previewColorFormat;
     }
 
+    /**
+     * 先获取预览图像的格式，再根据预览图像格式去查找合适的编码图像格式
+     * @param mediaCodecInfo
+     * @return
+     */
     public int getSupportMediaCodecColorFormat(MediaCodecInfo mediaCodecInfo){
         MediaCodecInfo.CodecCapabilities capabilities = mediaCodecInfo.getCapabilitiesForType("video/avc");
         LogUtils.d("CodecCapabilities length:"+capabilities.colorFormats.length + " " + Arrays.toString(capabilities.colorFormats));
         if(this.previewColorFormat<=0){
-            throw new RuntimeException("please getSupportMediaCodecColorFormat first");
+            throw new RuntimeException("please getSupportedPreviewFormats first");
         }
         int supportColorFormat=0;
         for(int colorFormat:capabilities.colorFormats) {
@@ -84,8 +89,8 @@ public class VideoComponent {
         Camera.Size chooseSize= suppportPreviewSize.get(suppportPreviewSize.size()/2);
         for(Camera.Size size:suppportPreviewSize){
             LogUtils.d("w:"+size.width+",h:"+size.height);
-            if(size.width==width){
-                chooseSize= size;
+            if(size.width<=width&&equalRate(size,1.33f)){
+                chooseSize=size;
                 break;
             }
         }
@@ -93,6 +98,11 @@ public class VideoComponent {
         this.height=chooseSize.height;
         LogUtils.d("choose size:"+this.width+"*"+ this.height);
         return chooseSize;
+    }
+
+    private boolean equalRate(Camera.Size s, float rate) {
+        float r = (float) (s.width) / (float) (s.height);
+        return Math.abs(r - rate) <= 0.2;
     }
 
     public MediaCodecInfo getSupportMediaCodecInfo(String mimeType) {
@@ -117,7 +127,11 @@ public class VideoComponent {
     }
 
 
-
+    /**
+     * 图像格式转换，将获取的原始帧图像格式转换成编码器支持的格式
+     * @param buffer
+     * @return
+     */
     public byte[] convert(byte[] buffer) {
         int ySize=buffer.length*2/3;
         int uSize=ySize/4;
@@ -139,9 +153,9 @@ public class VideoComponent {
 //            buf[i] = (byte) x;
             }
         } else {
-            throw new RuntimeException("");
+            throw new RuntimeException("sorry.you must convert by yourself");
         }
-        LogUtils.d("convert use time:" + (System.currentTimeMillis()-startTime) + " , size:" + buffer.length);
+//        LogUtils.d("convert use time:" + (System.currentTimeMillis()-startTime) + " , size:" + buffer.length);
         return buffer;
     }
 }

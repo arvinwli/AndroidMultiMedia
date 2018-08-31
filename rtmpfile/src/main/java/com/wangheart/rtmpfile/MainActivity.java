@@ -124,4 +124,9 @@ public class MainActivity extends Activity {
     public void btnAudioRecordFFmpeg(View view) {
         startActivity(new Intent(this, AudioRecordFFmpegActivity.class));
     }
+
+    public void btnVideoCompoundFile(View view) {
+        startActivity(new Intent(this, VideoCompoundFileActivity.class));
+
+    }
 }

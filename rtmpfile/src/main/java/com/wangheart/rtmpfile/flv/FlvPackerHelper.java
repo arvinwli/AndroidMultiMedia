@@ -3,6 +3,7 @@ package com.wangheart.rtmpfile.flv;
 
 import com.wangheart.rtmpfile.flv.amf.AmfMap;
 import com.wangheart.rtmpfile.flv.amf.AmfString;
+import com.wangheart.rtmpfile.utils.LogUtils;
 
 import java.nio.ByteBuffer;
 
@@ -64,7 +65,7 @@ public class FlvPackerHelper {
      * @param timestamp 时间戳
      * @return byte数组
      */
-    public static void writeFlvTagHeader(ByteBuffer buffer, int type, int dataSize, int timestamp) {
+        public static void writeFlvTagHeader(ByteBuffer buffer, int type, int dataSize, int timestamp) {
         /**
          * 第1个byte为记录着tag的类型，音频（0x8），视频（0x9），脚本（0x12）；
          * 第2-4bytes是数据区的长度，UI24类型的值，也就是tag data的长度；注：这个长度等于最后的Tag Size-11

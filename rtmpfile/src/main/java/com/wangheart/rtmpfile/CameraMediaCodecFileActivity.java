@@ -43,7 +43,7 @@ import java.util.concurrent.Executors;
 public class CameraMediaCodecFileActivity extends Activity implements SurfaceHolder.Callback {
     ExecutorService executor = Executors.newSingleThreadExecutor();
     private MySurfaceView sv;
-    //默认视频宽度
+    //建议的视频宽度，不超过这个宽度，自动寻找4：3的尺寸
     private final int SUGGEST_PREVIEW_WIDTH=640;
     private int videoWidth = 0;
     private int videoHeight = 0;
@@ -119,10 +119,10 @@ public class CameraMediaCodecFileActivity extends Activity implements SurfaceHol
             throw new RuntimeException("not found support preview size");
         }
         videoWidth=size.width;
-        videoHeight=480;
+        videoHeight=size.height;
         params.setPictureFormat(ImageFormat.JPEG);
         params.setPreviewFormat(mVideoComponent.getSupportPreviewColorFormat(params));
-        params.setPictureSize(videoWidth, videoHeight);
+//        params.setPictureSize(videoWidth, videoHeight);
         params.setPreviewSize(videoWidth, videoHeight);
         params.setPreviewFpsRange(15000, 20000);
         List<String> focusModes = params.getSupportedFocusModes();

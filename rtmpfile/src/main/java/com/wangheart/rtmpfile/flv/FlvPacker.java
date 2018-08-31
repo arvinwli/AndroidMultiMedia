@@ -3,6 +3,8 @@ package com.wangheart.rtmpfile.flv;
 import android.annotation.TargetApi;
 import android.media.MediaCodec;
 
+import com.wangheart.rtmpfile.utils.LogUtils;
+
 import java.nio.ByteBuffer;
 
 import static com.wangheart.rtmpfile.flv.FlvPackerHelper.AUDIO_HEADER_SIZE;
@@ -83,6 +85,24 @@ public class FlvPacker implements Packer, AnnexbHelper.AnnexbNaluListener{
         FlvPackerHelper.writeFlvTagHeader(buffer, FlvPackerHelper.FlvTag.Audio, audioPacketSize, compositionTime);
         FlvPackerHelper.writeAudioTag(buffer, audio, false, mAudioSampleSize);
         buffer.putInt(dataSize);
+        LogUtils.d("Audio package size:"+dataSize);
+        packetListener.onPacket(buffer.array(), AUDIO);
+    }
+
+    public void onAudioData(byte[] audio) {
+        if(packetListener == null || !isHeaderWrite || !isKeyFrameWrite) {
+            return;
+        }
+
+        int compositionTime = (int) (System.currentTimeMillis() - mStartTime);
+        int audioPacketSize = AUDIO_HEADER_SIZE + audio.length;
+        int dataSize = audioPacketSize + FLV_TAG_HEADER_SIZE;
+        int size = dataSize + PRE_SIZE;
+        ByteBuffer buffer = ByteBuffer.allocate(size);
+        FlvPackerHelper.writeFlvTagHeader(buffer, FlvPackerHelper.FlvTag.Audio, audioPacketSize, compositionTime);
+        FlvPackerHelper.writeAudioTag(buffer, audio, false, mAudioSampleSize);
+        buffer.putInt(dataSize);
+        LogUtils.d("Audio package size:"+dataSize);
         packetListener.onPacket(buffer.array(), AUDIO);
     }
 
