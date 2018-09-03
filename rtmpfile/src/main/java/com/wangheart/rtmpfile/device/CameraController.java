@@ -1,19 +1,10 @@
-package com.wangheart.rtmpfile.camera;
+package com.wangheart.rtmpfile.device;
 
 import android.app.Activity;
-import android.content.Context;
-import android.content.res.Configuration;
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
-import android.graphics.SurfaceTexture;
+import android.graphics.ImageFormat;
 import android.hardware.Camera;
-import android.hardware.Camera.PictureCallback;
-import android.hardware.Camera.ShutterCallback;
-import android.util.Size;
 import android.view.SurfaceHolder;
 
-import com.wangheart.rtmpfile.utils.FileUtil;
-import com.wangheart.rtmpfile.utils.ImageUtil;
 import com.wangheart.rtmpfile.utils.LogUtils;
 import com.wangheart.rtmpfile.utils.PhoneUtils;
 
@@ -28,19 +19,23 @@ import java.util.List;
  * Desc :  摄像头操作类
  * Modified :
  */
-public class CameraInterface {
+public class CameraController {
     private Camera mCamera;
     private boolean isPreviewing = false;
-    private static CameraInterface mCameraInterface;
+    private static CameraController mCameraInterface;
 
 
-    private CameraInterface() {
+    private CameraController() {
 
     }
 
-    public static synchronized CameraInterface getInstance() {
+    public static CameraController getInstance() {
         if (mCameraInterface == null) {
-            mCameraInterface = new CameraInterface();
+            synchronized(CameraController.class){
+                if(mCameraInterface==null){
+                    mCameraInterface = new CameraController();
+                }
+            }
         }
         return mCameraInterface;
     }
@@ -48,7 +43,7 @@ public class CameraInterface {
     /**
      * 打开Camera
      */
-    public boolean openCamera(int cameraId) {
+    public boolean open(int cameraId) {
         LogUtils.d("Camera open...");
         if (cameraId < 0 || cameraId >= Camera.getNumberOfCameras()) {
             LogUtils.e("cameraId is out of range");
@@ -56,8 +51,8 @@ public class CameraInterface {
         }
         if (mCamera != null) {
             LogUtils.e("Camera is using...");
-            stopPreview();
-            releaseCamera();
+//            stopPreview();
+            close();
         }
         mCamera = Camera.open(cameraId);
         LogUtils.d("Camera open over....");
@@ -90,6 +85,66 @@ public class CameraInterface {
             return params;
         } else return null;
     }
+
+    /**
+     * 寻找合适的预览格式，NV21和YV12。其他格式目前暂时不做支持
+     * @param parameters
+     * @return
+     */
+    public int getSupportPreviewColorFormat(Camera.Parameters parameters) {
+        if (parameters == null) {
+            throw new RuntimeException("Camera.Parameters is null");
+        }
+        List<Integer> previewSize = parameters.getSupportedPreviewFormats();
+        if (previewSize == null) {
+            throw new RuntimeException("getSupportedPreviewFormats is null");
+        }
+        int supportColorFormat = 0;
+        for (int colorFormat : previewSize) {
+            if (colorFormat == ImageFormat.NV21) {
+                supportColorFormat = ImageFormat.NV21;
+                break;
+            }
+            if (colorFormat == ImageFormat.YV12) {
+                supportColorFormat = ImageFormat.YV12;
+                break;
+            }
+        }
+        if (supportColorFormat == 0) {
+            throw new RuntimeException("not find support preview color format ");
+        }
+        LogUtils.d("PreviewColorFormat:" + supportColorFormat);
+        return supportColorFormat;
+    }
+
+    /**
+     * 找到合适的预览尺寸
+     * @param parameters
+     * @param width 建议尺寸，不超过width 宽高比为4:3
+     * @return
+     */
+    public Camera.Size getSupportPreviewSize(Camera.Parameters parameters, int width) {
+        List<Camera.Size> suppportPreviewSize = parameters.getSupportedPreviewSizes();
+        if (suppportPreviewSize == null || suppportPreviewSize.size() == 0) {
+            throw new RuntimeException("getSupportedPreviewSizes is empty");
+        }
+        Camera.Size chooseSize = suppportPreviewSize.get(suppportPreviewSize.size() / 2);
+        for (Camera.Size size : suppportPreviewSize) {
+            LogUtils.d("w:" + size.width + ",h:" + size.height);
+            if (size.width <= width && equalRate(size, 1.33f)) {
+                chooseSize = size;
+                break;
+            }
+        }
+        LogUtils.d("choose size:" + chooseSize.width + "*" + chooseSize.height);
+        return chooseSize;
+    }
+
+    private boolean equalRate(Camera.Size s, float rate) {
+        float r = (float) (s.width) / (float) (s.height);
+        return Math.abs(r - rate) <= 0.2;
+    }
+
 
     public void resetParams(Camera.Parameters param) {
         mCamera.setParameters(param);
@@ -133,9 +188,13 @@ public class CameraInterface {
      *
      * @param holder
      */
-    public void startPreview(SurfaceHolder holder, Camera.PreviewCallback cb) {
+    public boolean startPreview(SurfaceHolder holder, Camera.PreviewCallback cb) {
         LogUtils.d("doStartPreview...");
         stopPreview();
+        if(holder==null){
+            LogUtils.d("startPreview failed.SurfaceHolder is null");
+            return false;
+        }
         if (mCamera != null) {
             try {
                 mCamera.setPreviewDisplay(holder);
@@ -143,48 +202,23 @@ public class CameraInterface {
                     mCamera.setPreviewCallback(cb);
                 }
             } catch (IOException e) {
-                // TODO Auto-generated catch block
                 e.printStackTrace();
+                LogUtils.d("startPreview failed."+e.getMessage());
+                return false;
             }
             preview();
+            return true;
+        }else{
+            LogUtils.d("startPreview failed.Camera not open");
+            return false;
         }
     }
-
-
-    public void followScreenOrientation(Context context) {
-        if (mCamera == null)
-            return;
-        final int orientation = context.getResources().getConfiguration().orientation;
-        if (orientation == Configuration.ORIENTATION_LANDSCAPE) {
-        } else if (orientation == Configuration.ORIENTATION_PORTRAIT) {
-            mCamera.setDisplayOrientation(90);
-        }
-    }
-
-    /**
-     * 使用TextureView预览Camera
-     *
-     * @param surface
-     */
-    public synchronized void startPreview(SurfaceTexture surface) {
-        LogUtils.d("doStartPreview...");
-        stopPreview();
-        if (mCamera != null) {
-            try {
-                mCamera.setPreviewTexture(surface);
-            } catch (IOException e) {
-                // TODO Auto-generated catch block
-                e.printStackTrace();
-            }
-            preview();
-        }
-    }
-
 
     private synchronized void preview() {
         mCamera.startPreview();//开启预览
         isPreviewing = true;
         Camera.Parameters mParams = mCamera.getParameters(); //重新get一次
+        LogUtils.d("Camera startPreview Success");
         LogUtils.d("最终设置:PreviewSize--With = " + mParams.getPreviewSize().width
                 + "Height = " + mParams.getPreviewSize().height);
         LogUtils.d("最终设置:PictureSize--With = " + mParams.getPictureSize().width
@@ -196,81 +230,24 @@ public class CameraInterface {
         if (mCamera != null && isPreviewing) {
             mCamera.setPreviewCallback(null);
             mCamera.stopPreview();
-            isPreviewing = false;
         }
+        isPreviewing = false;
     }
 
     /**
      * 停止预览，释放Camera
      */
-    public synchronized void releaseCamera() {
+    public synchronized void close() {
+        if(isPreviewing){
+            stopPreview();
+        }
         if (null != mCamera) {
             mCamera.release();
             mCamera = null;
         }
     }
 
-    /**
-     * 拍照
-     */
-    public void takePicture() {
-        if (isPreviewing && (mCamera != null)) {
-            mCamera.takePicture(mShutterCallback, null, mJpegPictureCallback);
-        }
-    }
-
     public boolean isPreviewing() {
         return isPreviewing;
     }
-
-
-    public Camera getCamera() {
-        return mCamera;
-    }
-
-    /*为了实现拍照的快门声音及拍照保存照片需要下面三个回调变量*/
-    ShutterCallback mShutterCallback = new ShutterCallback()
-            //快门按下的回调，在这里我们可以设置类似播放“咔嚓”声之类的操作。默认的就是咔嚓。
-    {
-        public void onShutter() {
-            // TODO Auto-generated method stub
-            LogUtils.d("myShutterCallback:onShutter...");
-        }
-    };
-    PictureCallback mRawCallback = new PictureCallback()
-            // 拍摄的未压缩原数据的回调,可以为null
-    {
-
-        public void onPictureTaken(byte[] data, Camera camera) {
-            // TODO Auto-generated method stub
-            LogUtils.d("myRawCallback:onPictureTaken...");
-
-        }
-    };
-    PictureCallback mJpegPictureCallback = new PictureCallback()
-            //对jpeg图像数据的回调,最重要的一个回调
-    {
-        public void onPictureTaken(byte[] data, Camera camera) {
-            // TODO Auto-generated method stub
-            LogUtils.d("myJpegCallback:onPictureTaken...");
-            Bitmap b = null;
-            if (null != data) {
-                b = BitmapFactory.decodeByteArray(data, 0, data.length);//data是字节数据，将其解析成位图
-                mCamera.stopPreview();
-                isPreviewing = false;
-            }
-            //保存图片到sdcard
-            if (null != b) {
-                //设置FOCUS_MODE_CONTINUOUS_VIDEO)之后，myParam.set("rotation", 90)失效。
-                //图片竟然不能旋转了，故这里要旋转下
-                Bitmap rotaBitmap = ImageUtil.getRotateBitmap(b, 90.0f);
-                FileUtil.saveBitmap(rotaBitmap);
-            }
-            //再次进入预览
-            mCamera.startPreview();
-            isPreviewing = true;
-        }
-    };
-
-
 }

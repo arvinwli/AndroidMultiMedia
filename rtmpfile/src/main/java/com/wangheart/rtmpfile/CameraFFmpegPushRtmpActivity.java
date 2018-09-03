@@ -8,7 +8,7 @@ import android.view.SurfaceHolder;
 import android.view.View;
 import android.widget.FrameLayout;
 
-import com.wangheart.rtmpfile.camera.CameraInterface;
+import com.wangheart.rtmpfile.device.CameraController;
 import com.wangheart.rtmpfile.ffmpeg.FFmpegHandle;
 import com.wangheart.rtmpfile.utils.FileUtil;
 import com.wangheart.rtmpfile.utils.LogUtils;
@@ -59,8 +59,8 @@ public class CameraFFmpegPushRtmpActivity extends Activity implements SurfaceHol
     private void init() {
         sv = findViewById(R.id.sv);
         mStreamIt = new StreamIt();
-        CameraInterface.getInstance().openCamera(1);
-        Camera.Parameters params = CameraInterface.getInstance().getParams();
+        CameraController.getInstance().open(1);
+        Camera.Parameters params = CameraController.getInstance().getParams();
         params.setPictureFormat(ImageFormat.NV21);
         List<Camera.Size> list = params.getSupportedPictureSizes();
         for (Camera.Size size : list) {
@@ -77,7 +77,7 @@ public class CameraFFmpegPushRtmpActivity extends Activity implements SurfaceHol
         if (focusModes.contains("continuous-video")) {
             params.setFocusMode(Camera.Parameters.FOCUS_MODE_CONTINUOUS_VIDEO);
         }
-        CameraInterface.getInstance().adjustOrientation(this, new CameraInterface.OnOrientationChangeListener() {
+        CameraController.getInstance().adjustOrientation(this, new CameraController.OnOrientationChangeListener() {
             @Override
             public void onChange(int degree) {
                 FrameLayout.LayoutParams lp =
@@ -92,7 +92,7 @@ public class CameraFFmpegPushRtmpActivity extends Activity implements SurfaceHol
             }
         });
 
-        CameraInterface.getInstance().resetParams(params);
+        CameraController.getInstance().resetParams(params);
         mHolder = sv.getHolder();
         mHolder.addCallback(this);
         FFmpegHandle.getInstance().initVideo(url, WIDTH, HEIGHT);
@@ -101,27 +101,27 @@ public class CameraFFmpegPushRtmpActivity extends Activity implements SurfaceHol
     protected void onDestroy() {
         super.onDestroy();
         FFmpegHandle.getInstance().close();
-        CameraInterface.getInstance().releaseCamera();
+        CameraController.getInstance().close();
     }
 
     @Override
     protected void onResume() {
         super.onResume();
         if (mHolder != null) {
-            CameraInterface.getInstance().startPreview(mHolder, mStreamIt);
+            CameraController.getInstance().startPreview(mHolder, mStreamIt);
         }
     }
 
     @Override
     protected void onPause() {
         super.onPause();
-        CameraInterface.getInstance().stopPreview();
+        CameraController.getInstance().stopPreview();
     }
 
 
     @Override
     public void surfaceCreated(SurfaceHolder holder) {
-        CameraInterface.getInstance().startPreview(mHolder, mStreamIt);
+        CameraController.getInstance().startPreview(mHolder, mStreamIt);
     }
 
     @Override
@@ -130,8 +130,8 @@ public class CameraFFmpegPushRtmpActivity extends Activity implements SurfaceHol
 
     @Override
     public void surfaceDestroyed(SurfaceHolder holder) {
-        CameraInterface.getInstance().stopPreview();
-        CameraInterface.getInstance().releaseCamera();
+        CameraController.getInstance().stopPreview();
+        CameraController.getInstance().close();
     }
 
     ExecutorService executor = Executors.newSingleThreadExecutor();

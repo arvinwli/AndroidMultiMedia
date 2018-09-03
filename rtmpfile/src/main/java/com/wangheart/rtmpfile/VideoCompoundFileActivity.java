@@ -3,42 +3,30 @@ package com.wangheart.rtmpfile;
 import android.app.Activity;
 import android.graphics.ImageFormat;
 import android.hardware.Camera;
-import android.media.AudioFormat;
-import android.media.AudioRecord;
 import android.media.MediaCodec;
-import android.media.MediaCodecInfo;
-import android.media.MediaFormat;
-import android.media.MediaRecorder;
 import android.os.Bundle;
 import android.view.SurfaceHolder;
 import android.widget.FrameLayout;
 
-import com.wangheart.rtmpfile.camera.CameraInterface;
+import com.wangheart.rtmpfile.device.CameraController;
 import com.wangheart.rtmpfile.flv.FlvPacker;
 import com.wangheart.rtmpfile.flv.Packer;
-import com.wangheart.rtmpfile.utils.ADTSUtils;
-import com.wangheart.rtmpfile.utils.BytesHexStrTranslate;
 import com.wangheart.rtmpfile.utils.FileUtil;
 import com.wangheart.rtmpfile.utils.IOUtils;
 import com.wangheart.rtmpfile.utils.LogUtils;
 import com.wangheart.rtmpfile.utils.PhoneUtils;
 import com.wangheart.rtmpfile.video.AudioComponent;
+import com.wangheart.rtmpfile.video.VideoConfig;
 import com.wangheart.rtmpfile.video.EncodedDataCallback;
 import com.wangheart.rtmpfile.video.VideoComponent;
 import com.wangheart.rtmpfile.view.MySurfaceView;
 
 import org.jetbrains.annotations.Nullable;
 
-import java.io.BufferedOutputStream;
 import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
-import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
-import java.util.Date;
 import java.util.List;
-import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -85,12 +73,19 @@ public class VideoCompoundFileActivity extends Activity implements SurfaceHolder
         mVideoComponent = new VideoComponent();
         mAudioComponent=new AudioComponent();
         mPreviewFrameCallback = new PreviewFrameCallback();
-        initCamera();
-        //VideoComponent must init after initCamera
-        mVideoComponent.init();
+        //初始化摄像头
+        VideoConfig cameraConfig=initCamera();
+        if(cameraConfig==null){
+            return;
+        }
+        //配置视频组件
+        mVideoComponent.config(cameraConfig);
+        //配置音频
         mAudioComponent.init();
+        //设置编码回调
         mVideoComponent.setEncodedDataCallback(this);
         mAudioComponent.setEncodedDataCallback(this);
+        //初始化并设置flv打包参数
         mFlvPacker = new FlvPacker();
         mFlvPacker.initVideoParams(mVideoComponent.getWidth(), mVideoComponent.getHeight(), mVideoComponent.getFrameRate());
         mFlvPacker.initAudioParams(mAudioComponent.getAudioSampleRate(),
@@ -121,49 +116,62 @@ public class VideoCompoundFileActivity extends Activity implements SurfaceHolder
         }
     }
 
-    private void initCamera(){
-        CameraInterface.getInstance().openCamera(0);
-        Camera.Parameters params = CameraInterface.getInstance().getParams();
+    private VideoConfig initCamera(){
+        VideoConfig cameraConfig=new VideoConfig();
+        CameraController.getInstance().open(0);
+        Camera.Parameters params = CameraController.getInstance().getParams();
         //查找合适的预览尺寸
-        Camera.Size size= mVideoComponent.getSupportPreviewSize(params,SUGGEST_PREVIEW_WIDTH);
+        Camera.Size size= CameraController.getInstance().getSupportPreviewSize(params,SUGGEST_PREVIEW_WIDTH);
         if(size==null){
-            throw new RuntimeException("not found support preview size");
+            LogUtils.e("getSupportPreviewSize failed");
+            return null;
         }
-        //设置视频尺寸
-        mVideoComponent.setWidth(size.width);
-        mVideoComponent.setHeight(size.height);
+        final int width=size.width;
+        final int height=size.height;
+        //查找合适的预览图像格式
+        final int previewColorFormat= CameraController.getInstance().getSupportPreviewColorFormat(params);
+        if(previewColorFormat<=0){
+            LogUtils.e("getSupportPreviewColorFormat failed");
+            return null;
+        }
         params.setPictureFormat(ImageFormat.JPEG);
-        params.setPreviewFormat(mVideoComponent.getSupportPreviewColorFormat(params));
+        params.setPreviewFormat(previewColorFormat);
 //        params.setPictureSize(videoWidth, videoHeight);
-        params.setPreviewSize(mVideoComponent.getWidth(), mVideoComponent.getHeight());
+        params.setPreviewSize(width, height);
         params.setPreviewFpsRange(15000, 20000);
         List<String> focusModes = params.getSupportedFocusModes();
         if (focusModes.contains("continuous-video")) {
             params.setFocusMode(Camera.Parameters.FOCUS_MODE_CONTINUOUS_VIDEO);
         }
-        CameraInterface.getInstance().adjustOrientation(this, new CameraInterface.OnOrientationChangeListener() {
+        //调整布局尺寸
+        CameraController.getInstance().adjustOrientation(this, new CameraController.OnOrientationChangeListener() {
             @Override
             public void onChange(int degree) {
                 FrameLayout.LayoutParams lp =
                         (FrameLayout.LayoutParams) sv.getLayoutParams();
                 LogUtils.d(PhoneUtils.getWidth() + " " + PhoneUtils.getHeight());
                 if (degree == 90) {
-                    lp.height = PhoneUtils.getWidth() * mVideoComponent.getWidth() / mVideoComponent.getHeight();
+                    lp.height = PhoneUtils.getWidth() *width / height;
                 } else {
-                    lp.height = PhoneUtils.getWidth() * mVideoComponent.getWidth() / mVideoComponent.getHeight();
+                    lp.height = PhoneUtils.getWidth() * width / height;
                 }
                 sv.setLayoutParams(lp);
             }
         });
-        CameraInterface.getInstance().resetParams(params);
+        CameraController.getInstance().resetParams(params);
         mHolder = sv.getHolder();
         mHolder.addCallback(this);
+        cameraConfig.setPreviewWidth(width);
+        cameraConfig.setPreviewHeight(height);
+        cameraConfig.setPreviewColorFormat(previewColorFormat);
+        cameraConfig.setFrameRate(15);
+        return cameraConfig;
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        CameraInterface.getInstance().releaseCamera();
+        CameraController.getInstance().close();
         mAudioComponent.setEncodedDataCallback(null);
     }
 
@@ -171,16 +179,18 @@ public class VideoCompoundFileActivity extends Activity implements SurfaceHolder
     protected void onResume() {
         super.onResume();
         if (mHolder != null) {
-            CameraInterface.getInstance().startPreview(mHolder, mPreviewFrameCallback);
+            CameraController.getInstance().startPreview(mHolder, mPreviewFrameCallback);
         }
+        mVideoComponent.start();
         mAudioComponent.start();
     }
 
     @Override
     protected void onPause() {
         super.onPause();
+        CameraController.getInstance().stopPreview();
+        mVideoComponent.stop();
         mAudioComponent.stop();
-        CameraInterface.getInstance().stopPreview();
     }
 
 
@@ -188,7 +198,7 @@ public class VideoCompoundFileActivity extends Activity implements SurfaceHolder
     public void surfaceCreated(SurfaceHolder holder) {
         mFlvPacker.start();
         mOutStream = IOUtils.open(FileUtil.getMainDir() + File.separator + "/VideoCompound.flv", false);
-        CameraInterface.getInstance().startPreview(mHolder, mPreviewFrameCallback);
+        CameraController.getInstance().startPreview(mHolder, mPreviewFrameCallback);
 
     }
 
@@ -199,8 +209,8 @@ public class VideoCompoundFileActivity extends Activity implements SurfaceHolder
     @Override
     public void surfaceDestroyed(SurfaceHolder holder) {
         mFlvPacker.stop();
-        CameraInterface.getInstance().stopPreview();
-        CameraInterface.getInstance().releaseCamera();
+        CameraController.getInstance().stopPreview();
+        CameraController.getInstance().close();
         IOUtils.close(mOutStream);
     }
 

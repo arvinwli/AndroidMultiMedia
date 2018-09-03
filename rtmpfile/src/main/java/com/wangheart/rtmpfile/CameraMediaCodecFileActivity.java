@@ -8,10 +8,9 @@ import android.media.MediaCodecInfo;
 import android.media.MediaFormat;
 import android.os.Bundle;
 import android.view.SurfaceHolder;
-import android.view.View;
 import android.widget.FrameLayout;
 
-import com.wangheart.rtmpfile.camera.CameraInterface;
+import com.wangheart.rtmpfile.device.CameraController;
 import com.wangheart.rtmpfile.flv.FlvPacker;
 import com.wangheart.rtmpfile.flv.Packer;
 import com.wangheart.rtmpfile.utils.FileUtil;
@@ -111,8 +110,8 @@ public class CameraMediaCodecFileActivity extends Activity implements SurfaceHol
         }
     }
     private void initCamera(){
-        CameraInterface.getInstance().openCamera(0);
-        Camera.Parameters params = CameraInterface.getInstance().getParams();
+        CameraController.getInstance().open(0);
+        Camera.Parameters params = CameraController.getInstance().getParams();
         //查找合适的预览尺寸
         Camera.Size size= mVideoComponent.getSupportPreviewSize(params,SUGGEST_PREVIEW_WIDTH);
         if(size==null){
@@ -129,7 +128,7 @@ public class CameraMediaCodecFileActivity extends Activity implements SurfaceHol
         if (focusModes.contains("continuous-video")) {
             params.setFocusMode(Camera.Parameters.FOCUS_MODE_CONTINUOUS_VIDEO);
         }
-        CameraInterface.getInstance().adjustOrientation(this, new CameraInterface.OnOrientationChangeListener() {
+        CameraController.getInstance().adjustOrientation(this, new CameraController.OnOrientationChangeListener() {
             @Override
             public void onChange(int degree) {
                 FrameLayout.LayoutParams lp =
@@ -143,7 +142,7 @@ public class CameraMediaCodecFileActivity extends Activity implements SurfaceHol
                 sv.setLayoutParams(lp);
             }
         });
-        CameraInterface.getInstance().resetParams(params);
+        CameraController.getInstance().resetParams(params);
         mHolder = sv.getHolder();
         mHolder.addCallback(this);
     }
@@ -151,21 +150,21 @@ public class CameraMediaCodecFileActivity extends Activity implements SurfaceHol
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        CameraInterface.getInstance().releaseCamera();
+        CameraController.getInstance().close();
     }
 
     @Override
     protected void onResume() {
         super.onResume();
         if (mHolder != null) {
-            CameraInterface.getInstance().startPreview(mHolder, mPreviewFrameCallback);
+            CameraController.getInstance().startPreview(mHolder, mPreviewFrameCallback);
         }
     }
 
     @Override
     protected void onPause() {
         super.onPause();
-        CameraInterface.getInstance().stopPreview();
+        CameraController.getInstance().stopPreview();
     }
 
 
@@ -173,7 +172,7 @@ public class CameraMediaCodecFileActivity extends Activity implements SurfaceHol
     public void surfaceCreated(SurfaceHolder holder) {
         mFlvPacker.start();
         mOutStream = IOUtils.open(FileUtil.getMainDir() + File.separator + "/CameraMediaCodecFileActivity.flv", true);
-        CameraInterface.getInstance().startPreview(mHolder, mPreviewFrameCallback);
+        CameraController.getInstance().startPreview(mHolder, mPreviewFrameCallback);
 
     }
 
@@ -184,8 +183,8 @@ public class CameraMediaCodecFileActivity extends Activity implements SurfaceHol
     @Override
     public void surfaceDestroyed(SurfaceHolder holder) {
         mFlvPacker.stop();
-        CameraInterface.getInstance().stopPreview();
-        CameraInterface.getInstance().releaseCamera();
+        CameraController.getInstance().stopPreview();
+        CameraController.getInstance().close();
         IOUtils.close(mOutStream);
     }
 

@@ -13,7 +13,7 @@ import android.view.SurfaceHolder;
 import android.view.View;
 import android.widget.Toast;
 
-import com.wangheart.rtmpfile.camera.CameraInterface;
+import com.wangheart.rtmpfile.device.CameraController;
 import com.wangheart.rtmpfile.ffmpeg.FFmpegHandle;
 import com.wangheart.rtmpfile.flv.FlvPacker;
 import com.wangheart.rtmpfile.flv.Packer;
@@ -92,8 +92,8 @@ public class CameraMediaCodecRtmpActivity extends Activity implements SurfaceHol
             }
         });
         mStreamIt = new StreamIt();
-        CameraInterface.getInstance().openCamera(1);
-        Camera.Parameters params = CameraInterface.getInstance().getParams();
+        CameraController.getInstance().open(1);
+        Camera.Parameters params = CameraController.getInstance().getParams();
         params.setPictureFormat(ImageFormat.YV12);
         params.setPreviewFormat(ImageFormat.YV12);
         params.setPictureSize(WIDTH, HEIGHT);
@@ -103,7 +103,7 @@ public class CameraMediaCodecRtmpActivity extends Activity implements SurfaceHol
         if (focusModes.contains("continuous-video")) {
             params.setFocusMode(Camera.Parameters.FOCUS_MODE_CONTINUOUS_VIDEO);
         }
-        CameraInterface.getInstance().resetParams(params);
+        CameraController.getInstance().resetParams(params);
         mHolder = sv.getHolder();
         mHolder.addCallback(this);
 
@@ -157,21 +157,21 @@ public class CameraMediaCodecRtmpActivity extends Activity implements SurfaceHol
     protected void onDestroy() {
         super.onDestroy();
         FFmpegHandle.getInstance().close();
-        CameraInterface.getInstance().releaseCamera();
+        CameraController.getInstance().close();
     }
 
     @Override
     protected void onResume() {
         super.onResume();
         if (mHolder != null) {
-            CameraInterface.getInstance().startPreview(mHolder, mStreamIt);
+            CameraController.getInstance().startPreview(mHolder, mStreamIt);
         }
     }
 
     @Override
     protected void onPause() {
         super.onPause();
-        CameraInterface.getInstance().stopPreview();
+        CameraController.getInstance().stopPreview();
     }
 
 
@@ -179,7 +179,7 @@ public class CameraMediaCodecRtmpActivity extends Activity implements SurfaceHol
     public void surfaceCreated(SurfaceHolder holder) {
         mFlvPacker.start();
 //        mOutStream = IOUtils.open(DATA_DIR + File.separator + "/easy.flv", true);
-        CameraInterface.getInstance().startPreview(mHolder, mStreamIt);
+        CameraController.getInstance().startPreview(mHolder, mStreamIt);
         pushExecutor.execute(new Runnable() {
             @Override
             public void run() {
@@ -196,8 +196,8 @@ public class CameraMediaCodecRtmpActivity extends Activity implements SurfaceHol
     @Override
     public void surfaceDestroyed(SurfaceHolder holder) {
         mFlvPacker.stop();
-        CameraInterface.getInstance().stopPreview();
-        CameraInterface.getInstance().releaseCamera();
+        CameraController.getInstance().stopPreview();
+        CameraController.getInstance().close();
         int ret = RtmpHandle.getInstance().close();
         LogUtils.w("关闭RTMP连接：" + ret);
 //        IOUtils.close(mOutStream);

@@ -25,7 +25,7 @@ public class VideoComponent {
     private int mediaCodecFormat;
     private int width;
     private int height;
-    private final int mFrameRate = 15;
+    private int mFrameRate = 15;
     private static final String VCODEC_MIME = "video/avc";
     private MediaCodec mMediaCodec;
     private EncodedDataCallback mEncodedDataCallback;
@@ -33,7 +33,11 @@ public class VideoComponent {
     public VideoComponent() {
     }
 
-    public void init() {
+    public void config(VideoConfig cameraConfig) {
+        this.width=cameraConfig.getPreviewWidth();
+        this.height=cameraConfig.getPreviewHeight();
+        this.previewColorFormat=cameraConfig.getPreviewColorFormat();
+        this.mFrameRate=cameraConfig.getFrameRate();
         initMediaCodec();
     }
 
@@ -68,21 +72,42 @@ public class VideoComponent {
             if (mediaCodecInfo == null) {
                 throw new RuntimeException("mediaCodecInfo is Empty");
             }
+            //获取编码器
             mMediaCodec = MediaCodec.createByCodecName(mediaCodecInfo.getName());
             MediaFormat mediaFormat = MediaFormat.createVideoFormat(VCODEC_MIME, width, height);
+            //码率
             mediaFormat.setInteger(MediaFormat.KEY_BIT_RATE, bitrate);
+            //帧率
             mediaFormat.setInteger(MediaFormat.KEY_FRAME_RATE, mFrameRate);
+            //编码器图像格式
             mediaFormat.setInteger(MediaFormat.KEY_COLOR_FORMAT,
                     getSupportMediaCodecColorFormat(mediaCodecInfo));
+            //关键帧间隔时间设置
             mediaFormat.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 1);
             mMediaCodec.configure(mediaFormat, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
-            mMediaCodec.start();
+//            mMediaCodec.start();
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
 
+    public void start(){
+        if(mMediaCodec!=null){
+            mMediaCodec.start();
+        }
+    }
 
+    public void stop(){
+        if(mMediaCodec!=null){
+            mMediaCodec.stop();
+        }
+    }
+
+
+    /**
+     * 编码
+     * @param bufSou
+     */
     public void encode(byte[] bufSou) {
         //编码格式转换
         byte[] buf = convert(bufSou);
@@ -107,7 +132,6 @@ public class VideoComponent {
                 int outputBufferIndex = mMediaCodec.dequeueOutputBuffer(bufferInfo, 0);
                 while (outputBufferIndex >= 0) {
                     ByteBuffer outputBuffer = outputBuffers[outputBufferIndex];
-                    //进行flv封装
                     if (mEncodedDataCallback != null)
                         mEncodedDataCallback.onVideoEncodedCallback(outputBuffer, bufferInfo);
                     mMediaCodec.releaseOutputBuffer(outputBufferIndex, false);
@@ -204,6 +228,11 @@ public class VideoComponent {
         return Math.abs(r - rate) <= 0.2;
     }
 
+    /**
+     * 获取编码器信息
+     * @param mimeType 编码器类型名称。如：video/avc
+     * @return
+     */
     public MediaCodecInfo getSupportMediaCodecInfo(String mimeType) {
         int numCodecs = MediaCodecList.getCodecCount();
         for (int i = 0; i < numCodecs; i++) {
@@ -228,11 +257,17 @@ public class VideoComponent {
 
     /**
      * 图像格式转换，将获取的原始帧图像格式转换成编码器支持的格式
-     *
-     * @param buffer
-     * @return
+     * 目前支持 NV21->COLOR_FormatYUV420SemiPlanar 或YV12COLOR_FormatYUV420Planar
+     * 格式示例：为了这个转换的效率，这里尽量按上面的选择上面的格式进行匹配
+     * NV21                           YYYYYYYY VU VU
+     * COLOR_FormatYUV420SemiPlanar   YYYYYYYY UV UV
+     * ImageFormat.YV12               YYYYYYYY VV UU
+     * COLOR_FormatYUV420Planar       YYYYYYYY UU VV
+     * @param buffer 原始采集到的一帧数据
+     * @return 编码器支持的格式
      */
     public byte[] convert(byte[] buffer) {
+        //yuv420的带下比例是  Y:U:V=4:1:1  这里不要被420所误导
         int ySize = buffer.length * 2 / 3;
         int uSize = ySize / 4;
         int vSize = ySize / 4;

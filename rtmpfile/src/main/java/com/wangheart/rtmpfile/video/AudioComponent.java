@@ -18,7 +18,7 @@ import java.util.concurrent.ArrayBlockingQueue;
  * @author Arvin
  * @date 2018/8/29
  * @e-mail ericli_wang@163.com
- * @description
+ * @description 录音编码组件
  */
 public class AudioComponent {
     private AudioRecord mAudioRecord;
@@ -103,13 +103,13 @@ public class AudioComponent {
         }
         MediaFormat format = MediaFormat.createAudioFormat(MediaFormat.MIMETYPE_AUDIO_AAC,
                 mAudioSampleRate, mAudioChanelCount);
+        //最大缓冲区代销
         format.setInteger(MediaFormat.KEY_MAX_INPUT_SIZE, MAX_BUFFER_SIZE);
         format.setInteger(MediaFormat.KEY_BIT_RATE, 1000 * 30);
         mAudioEncoder.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
     }
 
     public void start() {
-        //开启录音
         mRecordThread = new Thread(FetchAudioRunnable());
         presentationTimeUs = new Date().getTime() * 1000;
         mAudioRecord.startRecording();
