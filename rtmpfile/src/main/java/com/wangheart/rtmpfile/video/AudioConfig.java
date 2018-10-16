@@ -9,7 +9,24 @@ package com.wangheart.rtmpfile.video;
 public class AudioConfig {
     private int audioFormat;
     private int channelCount;
-    private int sampleFormat;
+    private int sampleRate;
+    private int bufferSize;
+
+    public int getBufferSize() {
+        return bufferSize;
+    }
+
+    public void setBufferSize(int bufferSize) {
+        this.bufferSize = bufferSize;
+    }
+
+    public int getSampleRate() {
+        return sampleRate;
+    }
+
+    public void setSampleRate(int sampleRate) {
+        this.sampleRate = sampleRate;
+    }
 
     public int getAudioFormat() {
         return audioFormat;
@@ -25,13 +42,5 @@ public class AudioConfig {
 
     public void setChannelCount(int channelCount) {
         this.channelCount = channelCount;
-    }
-
-    public int getSampleFormat() {
-        return sampleFormat;
-    }
-
-    public void setSampleFormat(int sampleFormat) {
-        this.sampleFormat = sampleFormat;
     }
 }

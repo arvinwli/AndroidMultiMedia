@@ -21,6 +21,7 @@ import java.util.List;
  * @description
  */
 public class VideoComponent {
+    private final String TAG="VideoComponent";
     private int previewColorFormat;
     private int mediaCodecFormat;
     private int width;
@@ -29,6 +30,7 @@ public class VideoComponent {
     private static final String VCODEC_MIME = "video/avc";
     private MediaCodec mMediaCodec;
     private EncodedDataCallback mEncodedDataCallback;
+    private boolean isCodecStart=false;
 
     public VideoComponent() {
     }
@@ -39,6 +41,8 @@ public class VideoComponent {
         this.previewColorFormat=cameraConfig.getPreviewColorFormat();
         this.mFrameRate=cameraConfig.getFrameRate();
         initMediaCodec();
+        LogUtils.d(TAG,"Video Config >>> CodecColorFormat:"+mediaCodecFormat+",PreviewColorFormat:"+previewColorFormat+
+        ",FrameRate:"+mFrameRate+",width:"+width+",height:"+height);
     }
 
     public void setWidth(int width) {
@@ -66,6 +70,7 @@ public class VideoComponent {
     }
 
     private void initMediaCodec() {
+        LogUtils.d( "initMediaCodec");
         int bitrate = 2 * width * height * mFrameRate / 20;
         try {
             MediaCodecInfo mediaCodecInfo = getSupportMediaCodecInfo(VCODEC_MIME);
@@ -85,7 +90,6 @@ public class VideoComponent {
             //关键帧间隔时间设置
             mediaFormat.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 1);
             mMediaCodec.configure(mediaFormat, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
-//            mMediaCodec.start();
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -93,13 +97,17 @@ public class VideoComponent {
 
     public void start(){
         if(mMediaCodec!=null){
+            isCodecStart=true;
+            LogUtils.d( "mMediaCodec.start()");
             mMediaCodec.start();
         }
     }
 
     public void stop(){
         if(mMediaCodec!=null){
+            LogUtils.d( "mMediaCodec.stop()");
             mMediaCodec.stop();
+            isCodecStart=false;
         }
     }
 
@@ -109,7 +117,10 @@ public class VideoComponent {
      * @param bufSou
      */
     public void encode(byte[] bufSou) {
+        if(!isCodecStart)
+            return;
         //编码格式转换
+        LogUtils.d( "encode size:"+bufSou.length);
         byte[] buf = convert(bufSou);
 
         ByteBuffer[] inputBuffers = mMediaCodec.getInputBuffers();

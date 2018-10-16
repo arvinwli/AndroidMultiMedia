@@ -7,6 +7,7 @@ import android.view.SurfaceHolder;
 
 import com.wangheart.rtmpfile.utils.LogUtils;
 import com.wangheart.rtmpfile.utils.PhoneUtils;
+import com.wangheart.rtmpfile.video.SourceDataCallback;
 
 import java.io.IOException;
 import java.util.List;
@@ -23,6 +24,7 @@ public class CameraController {
     private Camera mCamera;
     private boolean isPreviewing = false;
     private static CameraController mCameraInterface;
+    private SourceDataCallback mCallback;
 
 
     private CameraController() {
@@ -38,6 +40,11 @@ public class CameraController {
             }
         }
         return mCameraInterface;
+    }
+
+
+    public void setCallback(SourceDataCallback mCallback) {
+        this.mCallback = mCallback;
     }
 
     /**
@@ -183,6 +190,9 @@ public class CameraController {
         void onChange(int degree);
     }
 
+    public boolean startPreview(SurfaceHolder holder) {
+        return startPreview(holder,null);
+    }
     /**
      * 使用Surfaceview开启预览
      *
@@ -200,6 +210,8 @@ public class CameraController {
                 mCamera.setPreviewDisplay(holder);
                 if (cb != null) {
                     mCamera.setPreviewCallback(cb);
+                }else{
+                    mCamera.setPreviewCallback(new PreviewFrameCallback());
                 }
             } catch (IOException e) {
                 e.printStackTrace();
@@ -249,5 +261,38 @@ public class CameraController {
 
     public boolean isPreviewing() {
         return isPreviewing;
+    }
+
+
+
+
+    private class PreviewFrameCallback implements Camera.PreviewCallback {
+        //采集到每帧数据时间
+        long lastPreviewTime = 0;
+        //采集数量
+        int count = 0;
+        public PreviewFrameCallback() {
+
+        }
+        @Override
+        public void onPreviewFrame(final byte[] data, Camera camera) {
+            long currentTime = System.currentTimeMillis();
+            LogUtils.v("采集第:" + (count) + "帧，距上一帧间隔时间:"
+                    + (currentTime - lastPreviewTime) + "  " + Thread.currentThread().getName());
+            lastPreviewTime = currentTime;
+            if(mCallback!=null){
+                mCallback.onVideoSourceDataCallback(data,count);
+            }
+            count++;
+//            executor.execute(new Runnable() {
+//                @Override
+//                public void run() {
+//                    encodeTime = System.currentTimeMillis();
+//                    mVideoComponent.encode(data);
+//                    LogUtils.w("编码第:" + (encodeCount++) + "帧，耗时:" + (System.currentTimeMillis() - encodeTime));
+//                }
+//            });
+
+        }
     }
 }

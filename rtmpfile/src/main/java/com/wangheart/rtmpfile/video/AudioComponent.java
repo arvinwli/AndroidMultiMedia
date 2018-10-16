@@ -1,12 +1,8 @@
 package com.wangheart.rtmpfile.video;
 
-import android.media.AudioFormat;
-import android.media.AudioRecord;
 import android.media.MediaCodec;
 import android.media.MediaFormat;
-import android.media.MediaRecorder;
 
-import com.wangheart.rtmpfile.utils.ADTSUtils;
 import com.wangheart.rtmpfile.utils.LogUtils;
 
 import java.io.IOException;
@@ -20,31 +16,31 @@ import java.util.concurrent.ArrayBlockingQueue;
  * @e-mail ericli_wang@163.com
  * @description 录音编码组件
  */
-public class AudioComponent {
-    private AudioRecord mAudioRecord;
+public class AudioComponent{
     private int mAudioSampleRate;
     private int mAudioChanelCount;
-    private byte[] mAudioBuffer;
+    private int mAudioBufferSize;
     private MediaCodec mAudioEncoder;
     private long presentationTimeUs;
-    private Thread mRecordThread;
     private Thread mEncodeThread;
     private ByteBuffer[] encodeInputBuffers;
     private ByteBuffer[] encodeOutputBuffers;
     private MediaCodec.BufferInfo mAudioEncodeBufferInfo;
-    private int mSampleRateType;
-    private int mAudioFormat;
     //    private BufferedOutputStream mAudioBos;
     private ArrayBlockingQueue<byte[]> queue;
-    private boolean isRecord = false;
+    private boolean isEncoding = false;
     private int MAX_BUFFER_SIZE = 8192;
     private EncodedDataCallback mEncodedDataCallback;
 
     public AudioComponent() {
     }
 
-    public void init() {
-        initAudioDevice();
+    public void config(AudioConfig config) {
+        queue = new ArrayBlockingQueue<byte[]>(10);
+        mAudioChanelCount=config.getChannelCount();
+        mAudioSampleRate=config.getSampleRate();
+        mAudioBufferSize=config.getBufferSize();
+
         initAudioEncoder();
     }
 
@@ -56,38 +52,11 @@ public class AudioComponent {
         return mAudioChanelCount;
     }
 
-    public int getAudioFormat() {
-        return mAudioFormat;
-    }
-
 
     public void setEncodedDataCallback(EncodedDataCallback mEncodedDataCallback) {
         this.mEncodedDataCallback = mEncodedDataCallback;
     }
 
-    /**
-     * 初始化AudioRecord
-     */
-    private void initAudioDevice() {
-        int[] sampleRates = {44100, 22050, 16000, 11025};
-        for (int sampleRate : sampleRates) {
-            //编码制式
-            mAudioFormat = AudioFormat.ENCODING_PCM_16BIT;
-            // stereo 立体声，
-            int channelConfig = AudioFormat.CHANNEL_CONFIGURATION_STEREO;
-            int buffsize = 2 * AudioRecord.getMinBufferSize(sampleRate, channelConfig, mAudioFormat);
-            mAudioRecord = new AudioRecord(MediaRecorder.AudioSource.MIC, sampleRate, channelConfig,
-                    mAudioFormat, buffsize);
-            if (mAudioRecord.getState() == AudioRecord.STATE_INITIALIZED && buffsize <= MAX_BUFFER_SIZE) {
-                mAudioSampleRate = sampleRate;
-                mAudioChanelCount = channelConfig == AudioFormat.CHANNEL_CONFIGURATION_STEREO ? 2 : 1;
-                mAudioBuffer = new byte[buffsize];
-                mSampleRateType = ADTSUtils.getSampleRateType(sampleRate);
-                LogUtils.w("编码器参数:" + mAudioSampleRate + " " + mSampleRateType + " " + mAudioChanelCount + " " + buffsize);
-                break;
-            }
-        }
-    }
 
     /**
      * 初始化编码器
@@ -110,11 +79,8 @@ public class AudioComponent {
     }
 
     public void start() {
-        mRecordThread = new Thread(FetchAudioRunnable());
         presentationTimeUs = new Date().getTime() * 1000;
-        mAudioRecord.startRecording();
-        queue = new ArrayBlockingQueue<byte[]>(10);
-        isRecord = true;
+        isEncoding = true;
         if (mAudioEncoder != null) {
             mAudioEncoder.start();
             encodeInputBuffers = mAudioEncoder.getInputBuffers();
@@ -123,30 +89,20 @@ public class AudioComponent {
             mEncodeThread = new Thread(new EncodeRunnable());
             mEncodeThread.start();
         }
-        mRecordThread.start();
     }
 
     public void stop() {
-        isRecord = false;
+        isEncoding = false;
     }
 
     private class EncodeRunnable implements Runnable {
         @Override
         public void run() {
             LogUtils.w("编码线程开始");
-            while (isRecord || !queue.isEmpty())
+            while (isEncoding || !queue.isEmpty())
                 encodePCM();
             release();
         }
-    }
-
-    private Runnable FetchAudioRunnable() {
-        return new Runnable() {
-            @Override
-            public void run() {
-                fetchPcmFromDevice();
-            }
-        };
     }
 
     /**
@@ -188,11 +144,11 @@ public class AudioComponent {
     /**
      * 将PCM数据存入队列
      *
-     * @param pcmChunk PCM数据块
+     * @param pcmData PCM数据块
      */
-    private void putPCMData(byte[] pcmChunk) {
+    public void putData(byte[] pcmData){
         try {
-            queue.put(pcmChunk);
+            queue.put(pcmData);
         } catch (InterruptedException e) {
             e.printStackTrace();
             LogUtils.e("queue put error");
@@ -217,35 +173,9 @@ public class AudioComponent {
     }
 
     /**
-     * 采集音频数据
-     */
-    private void fetchPcmFromDevice() {
-        LogUtils.w("录音线程开始");
-        while (isRecord && mAudioRecord != null && !Thread.interrupted()) {
-            int size = mAudioRecord.read(mAudioBuffer, 0, mAudioBuffer.length);
-            if (size < 0) {
-                LogUtils.w("audio ignore ,no data to read");
-                break;
-            }
-            if (isRecord) {
-                byte[] audio = new byte[size];
-                System.arraycopy(mAudioBuffer, 0, audio, 0, size);
-                LogUtils.v("采集到数据:" + audio.length);
-                putPCMData(audio);
-            }
-        }
-    }
-
-
-    /**
      * 释放资源
      */
     public void release() {
-        if (mAudioRecord != null) {
-            mAudioRecord.stop();
-            mAudioRecord.release();
-        }
-
         if (mAudioEncoder != null) {
             mAudioEncoder.stop();
             mAudioEncoder.release();
