@@ -23,6 +23,7 @@ public class AudioRecordController {
     private SourceDataCallback mCallback;
     private int mBufferSize;
     private final String TAG="AudioRecordController";
+    public static int MAX_BUFFER_SIZE = 8192;
 
     private AudioRecordController() {
 
@@ -47,7 +48,7 @@ public class AudioRecordController {
             mBufferSize = 2 * AudioRecord.getMinBufferSize(sampleRate, channelConfig, AudioFormat.ENCODING_PCM_16BIT);
             AudioRecord audioRecord = new AudioRecord(MediaRecorder.AudioSource.MIC, sampleRate, channelConfig,
                     AudioFormat.ENCODING_PCM_16BIT, mBufferSize);
-            if (audioRecord.getState() == AudioRecord.STATE_INITIALIZED) {
+            if (audioRecord.getState() == AudioRecord.STATE_INITIALIZED&&mBufferSize<=MAX_BUFFER_SIZE) {
                 mAudioRecord = audioRecord;
                 mAudioBuffer=new byte[mBufferSize];
                 return mAudioRecord;

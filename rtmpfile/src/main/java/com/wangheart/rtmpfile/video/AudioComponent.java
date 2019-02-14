@@ -29,10 +29,11 @@ public class AudioComponent{
     //    private BufferedOutputStream mAudioBos;
     private ArrayBlockingQueue<byte[]> queue;
     private boolean isEncoding = false;
-    private int MAX_BUFFER_SIZE = 8192;
+    private int maxBufferSize = 8192;
     private EncodedDataCallback mEncodedDataCallback;
 
-    public AudioComponent() {
+    public AudioComponent(int maxBufferSize) {
+        this.maxBufferSize=maxBufferSize;
     }
 
     public void config(AudioConfig config) {
@@ -73,7 +74,7 @@ public class AudioComponent{
         MediaFormat format = MediaFormat.createAudioFormat(MediaFormat.MIMETYPE_AUDIO_AAC,
                 mAudioSampleRate, mAudioChanelCount);
         //最大缓冲区代销
-        format.setInteger(MediaFormat.KEY_MAX_INPUT_SIZE, MAX_BUFFER_SIZE);
+        format.setInteger(MediaFormat.KEY_MAX_INPUT_SIZE, maxBufferSize);
         format.setInteger(MediaFormat.KEY_BIT_RATE, 1000 * 30);
         mAudioEncoder.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
     }

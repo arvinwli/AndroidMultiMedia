@@ -77,7 +77,7 @@ public class VideoCompoundFileActivity extends Activity implements SurfaceHolder
         mPackageHandler = new Handler(mPackageThread.getLooper());
 
         mVideoComponent = new VideoComponent();
-        mAudioComponent = new AudioComponent();
+        mAudioComponent = new AudioComponent(AudioRecordController.MAX_BUFFER_SIZE);
         //初始化摄像头
         VideoConfig cameraConfig = initCamera();
         //初始化录音设备
@@ -156,9 +156,9 @@ public class VideoCompoundFileActivity extends Activity implements SurfaceHolder
         executor.execute(new Runnable() {
             @Override
             public void run() {
-//                mAudioencodeTime = System.currentTimeMillis();
-//                mAudioComponent.putData(data);
-//                LogUtils.w("编码第:" + (index) + "帧，size:" + data.length + "耗时:" + (System.currentTimeMillis() - mAudioencodeTime));
+                mAudioencodeTime = System.currentTimeMillis();
+                mAudioComponent.putData(data);
+                LogUtils.w("编码第:" + (index) + "帧，size:" + data.length + "耗时:" + (System.currentTimeMillis() - mAudioencodeTime));
             }
         });
     }

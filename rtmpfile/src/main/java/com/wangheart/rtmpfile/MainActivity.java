@@ -125,6 +125,10 @@ public class MainActivity extends Activity {
         startActivity(new Intent(this, AudioRecordFFmpegActivity.class));
     }
 
+    /**
+     * 音视频合成，存到flv文件
+     * @param view
+     */
     public void btnVideoCompoundFile(View view) {
         startActivity(new Intent(this, VideoCompoundFileActivity.class));
 
